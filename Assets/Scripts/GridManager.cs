@@ -29,6 +29,7 @@ public class GridManager : MonoBehaviour
     
     [Header("Prefabs")]
     [SerializeField] private GameObject textCoordinatePrefab;
+    [SerializeField] private GameObject gatePrefab;
     
     [Header("Materials")]
     [SerializeField] private Material defaultMaterial;
@@ -46,6 +47,9 @@ public class GridManager : MonoBehaviour
     public int GridSizeX => x;
     public int GridSizeY => y;
     public float CellSize => cellSize;
+    
+    public GameObject GatePrefab => gatePrefab;
+    public GameObject SpawnedGate {get; private set;}
     
     public List<Vector2Int> GetPathCells() => pathCellCoordinates;
     
@@ -148,6 +152,12 @@ public class GridManager : MonoBehaviour
     [ContextMenu("Delete Grid")]
     public void DeleteGrid()
     {
+        if (SpawnedGate != null)
+        {
+            DestroyImmediate(SpawnedGate);
+            SpawnedGate = null;
+        }
+        
         // Clear any existing child objects and dictionary
         while (transform.childCount > 0)
         {
@@ -257,6 +267,11 @@ public class GridManager : MonoBehaviour
         }
         return true; // Default to NOT occupied for invalid cells
     }
+    
+    public void SetSpawnedGate(GameObject gate)
+    {
+        SpawnedGate = gate;
+    }
 }
 
 #if UNITY_EDITOR
@@ -267,6 +282,8 @@ public class GridManagerEditor : Editor
     private bool isPainting = false;
     private CellType paintType = CellType.Path;
     private bool eraserMode = false;
+    
+    private Vector2Int lastPaintedCell = new Vector2Int(-1, -1);
     
     private void OnEnable()
     {
@@ -312,6 +329,7 @@ public class GridManagerEditor : Editor
         if (GUILayout.Button("Start Painting"))
         {
             isPainting = true;
+            lastPaintedCell = new Vector2Int(-1, -1);
             SceneView.duringSceneGui += OnSceneGUI;
         }
         
@@ -319,6 +337,12 @@ public class GridManagerEditor : Editor
         {
             isPainting = false;
             SceneView.duringSceneGui -= OnSceneGUI;
+            
+            // Spawn gate at the last painted cell position
+            if (lastPaintedCell.x != -1 && gridManager.GatePrefab != null)
+            {
+                SpawnGateAtLastCell();
+            }
         }
         
         EditorGUILayout.EndHorizontal();
@@ -337,6 +361,78 @@ public class GridManagerEditor : Editor
         }
     }
     
+    // In the SpawnGateAtLastCell method:
+    private void SpawnGateAtLastCell()
+    {
+        // Get the gate prefab from the GridManager
+        GameObject gatePrefab = gridManager.GatePrefab;
+        
+        if (gatePrefab == null)
+        {
+            Debug.LogError("Gate prefab is not set in the Grid Manager!");
+            return;
+        }
+        
+        // Delete any existing gate
+        if (gridManager.SpawnedGate != null)
+        {
+            Undo.DestroyObjectImmediate(gridManager.SpawnedGate);
+        }
+        
+        // Get the world position of the last painted cell (centered)
+        gridManager.TryGetCellObject(lastPaintedCell, out GameObject cellObject);
+        Vector3 gatePosition = cellObject.transform.position;
+        
+        // Create the gate prefab
+        GameObject gate = PrefabUtility.InstantiatePrefab(gatePrefab) as GameObject;
+        if (gate != null)
+        {
+            Undo.RegisterCreatedObjectUndo(gate, "Create Gate");
+            
+            // Position the gate
+            gate.transform.position = gatePosition;
+            gate.name = "Gate";
+            
+            // Make the gate a child of the grid manager
+            gate.transform.SetParent(gridManager.transform);
+            
+            // Store the reference to the gate
+            Undo.RecordObject(gridManager, "Set Gate Reference");
+            gridManager.SetSpawnedGate(gate);
+            EditorUtility.SetDirty(gridManager);
+            
+            // Add a special end marker to the path
+            List<Vector2Int> pathCells = gridManager.GetPathCells();
+            if (!pathCells.Contains(new Vector2Int(-1, -1)))
+            {
+                SerializedObject so = new SerializedObject(gridManager);
+                SerializedProperty pathCellsProp = so.FindProperty("pathCellCoordinates");
+                
+                int endIndex = pathCellsProp.arraySize;
+                pathCellsProp.InsertArrayElementAtIndex(endIndex);
+                SerializedProperty endElement = pathCellsProp.GetArrayElementAtIndex(endIndex);
+                
+                // Set the end marker position (-1, -1)
+                var xProp = endElement.FindPropertyRelative("x");
+                var yProp = endElement.FindPropertyRelative("y");
+                if (xProp != null && yProp != null)
+                {
+                    xProp.intValue = -1;
+                    yProp.intValue = -1;
+                }
+                
+                so.ApplyModifiedProperties();
+            }
+            
+            Debug.Log($"Gate spawned at cell ({lastPaintedCell.x}, {lastPaintedCell.y})");
+        }
+        else
+        {
+            Debug.LogError("Failed to instantiate Gate prefab!");
+        }
+    }
+
+    
     private void OnSceneGUI(SceneView sceneView)
     {
         // Exit paint mode if Escape is pressed
@@ -351,9 +447,6 @@ public class GridManagerEditor : Editor
         if (!isPainting) return;
 
         Event e = Event.current;
-        
-        // Track the last cell we painted to avoid repainting the same cell multiple times
-        Vector2Int? lastPaintedCell = null;
         
         // Handle both MouseDown and MouseDrag events for continuous painting
         if ((e.type == EventType.MouseDown || e.type == EventType.MouseDrag) && e.button == 0)
@@ -370,18 +463,19 @@ public class GridManagerEditor : Editor
                     Vector2Int cellCoords;
                     if (gridManager.TryGetCellAtPosition(hit.transform.position, out cellCoords))
                     {
-                        // Skip if we just painted this cell (for smoother painting)
-                        if (lastPaintedCell.HasValue && lastPaintedCell.Value == cellCoords)
-                            return;
-                            
                         // Only make an Undo record for the first change in a drag sequence
                         if (e.type == EventType.MouseDown)
                         {
                             Undo.RecordObject(gridManager, "Paint Cell");
                         }
                         
+                        // Only update if not erasing - we want to track the last painted path cell
+                        if (!eraserMode)
+                        {
+                            lastPaintedCell = cellCoords;
+                        }
+                        
                         gridManager.SetCellType(cellCoords, paintType);
-                        lastPaintedCell = cellCoords;
                         EditorUtility.SetDirty(gridManager);
                     }
                 }
@@ -403,12 +497,21 @@ public class GridManagerEditor : Editor
         }
     }
     
+    // Update the ClearAllPaths method:
     private void ClearAllPaths()
     {
+        // Delete any existing gate
+        if (gridManager.SpawnedGate != null)
+        {
+            Undo.RecordObject(gridManager, "Clear Gate Reference");
+            Undo.DestroyObjectImmediate(gridManager.SpawnedGate);
+            gridManager.SetSpawnedGate(null);
+        }
+    
         var pathCellsProperty = serializedObject.FindProperty("pathCellCoordinates");
         pathCellsProperty.ClearArray();
         serializedObject.ApplyModifiedProperties();
-        
+    
         // Update visual state - set all cells to default
         for (int i = 0; i < gridManager.GridSizeX; i++)
         {
@@ -417,6 +520,8 @@ public class GridManagerEditor : Editor
                 gridManager.SetCellType(new Vector2Int(i, j), CellType.Default);
             }
         }
+    
+        EditorUtility.SetDirty(gridManager);
     }
 }
 #endif
