@@ -2,7 +2,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Represents an enemy that can follow a path and attack damageable structures
+/// Represents an enemy that follows a path and attacks structures
 /// </summary>
 public class Enemy : MonoBehaviour, IDamageable
 {
@@ -24,11 +24,9 @@ public class Enemy : MonoBehaviour, IDamageable
     [SerializeField] private Transform firePoint;
     [SerializeField] private GameObject projectilePrefab;
     
-    // Events from IDamageable
+    // IDamageable implementation
     public event System.Action<IDamageable> OnDestroyed;
     public event System.Action<IDamageable, float> OnDamaged;
-    
-    // Properties from IDamageable
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
     
@@ -47,8 +45,6 @@ public class Enemy : MonoBehaviour, IDamageable
     private void Awake()
     {
         currentHealth = maxHealth;
-        
-        // Find the grid manager
         gridManager = FindFirstObjectByType<GridManager>();
         if (gridManager == null)
         {
@@ -89,13 +85,9 @@ public class Enemy : MonoBehaviour, IDamageable
         // Get the path cells from the grid manager
         pathCells = gridManager.GetPathCells();
         
-        // Sort path cells to create a logical path
-        // This is a simple implementation and might need to be adjusted based on your specific path design
-        SortPathCells();
-        
         if (pathCells.Count > 0)
         {
-            // Set the first target position
+            // Start at the first path cell
             currentPathIndex = 0;
             UpdateTargetPosition();
         }
@@ -104,114 +96,6 @@ public class Enemy : MonoBehaviour, IDamageable
             Debug.LogWarning("No path cells found! Enemy has nowhere to go.");
             hasReachedDestination = true;
         }
-    }
-    
-    /// <summary>
-    /// Sort path cells to create a logical path
-    /// This implementation assumes a linear path from one end to the other
-    /// </summary>
-    private void SortPathCells()
-    {
-        // This is a very basic implementation
-        // In a real scenario, you might want to use a more sophisticated algorithm, like A*
-        // or have a predefined path through waypoints
-        
-        if (pathCells.Count <= 1) return;
-        
-        // Find the nearest path cell to start with
-        Vector2Int currentPos;
-        if (gridManager.TryGetCellAtPosition(transform.position, out currentPos))
-        {
-            Vector2Int startCell = FindNearestPathCell(currentPos);
-            List<Vector2Int> sortedPath = new List<Vector2Int> { startCell };
-            HashSet<Vector2Int> visitedCells = new HashSet<Vector2Int> { startCell };
-            
-            // Simple greedy algorithm to find the next nearest cell
-            while (sortedPath.Count < pathCells.Count)
-            {
-                Vector2Int currentCell = sortedPath[sortedPath.Count - 1];
-                Vector2Int nextCell = FindNearestUnvisitedNeighbor(currentCell, visitedCells);
-                
-                if (nextCell == new Vector2Int(-1, -1)) // No more neighbors
-                    break;
-                    
-                sortedPath.Add(nextCell);
-                visitedCells.Add(nextCell);
-            }
-            
-            pathCells = sortedPath;
-        }
-    }
-    
-    /// <summary>
-    /// Find the nearest path cell to the given position
-    /// </summary>
-    private Vector2Int FindNearestPathCell(Vector2Int position)
-    {
-        float minDist = float.MaxValue;
-        Vector2Int nearest = new Vector2Int(-1, -1);
-        
-        foreach (Vector2Int cell in pathCells)
-        {
-            float dist = Vector2Int.Distance(position, cell);
-            if (dist < minDist)
-            {
-                minDist = dist;
-                nearest = cell;
-            }
-        }
-        
-        return nearest;
-    }
-    
-    /// <summary>
-    /// Find the nearest unvisited neighbor path cell
-    /// </summary>
-    private Vector2Int FindNearestUnvisitedNeighbor(Vector2Int cell, HashSet<Vector2Int> visitedCells)
-    {
-        // Check the four adjacent cells (up, right, down, left)
-        Vector2Int[] neighbors = new Vector2Int[]
-        {
-            new Vector2Int(cell.x, cell.y + 1),
-            new Vector2Int(cell.x + 1, cell.y),
-            new Vector2Int(cell.x, cell.y - 1),
-            new Vector2Int(cell.x - 1, cell.y)
-        };
-        
-        float minDist = float.MaxValue;
-        Vector2Int nearest = new Vector2Int(-1, -1);
-        
-        foreach (Vector2Int neighbor in neighbors)
-        {
-            if (pathCells.Contains(neighbor) && !visitedCells.Contains(neighbor))
-            {
-                float dist = Vector2Int.Distance(cell, neighbor);
-                if (dist < minDist)
-                {
-                    minDist = dist;
-                    nearest = neighbor;
-                }
-            }
-        }
-        
-        // If no adjacent cells, find the nearest unvisited path cell
-        if (nearest.x == -1)
-        {
-            foreach (Vector2Int pathCell in pathCells)
-            {
-                if (!visitedCells.Contains(pathCell))
-                {
-                    float dist = Vector2Int.Distance(cell, pathCell);
-                    if (dist < minDist)
-                    {
-                        minDist = dist;
-                        nearest = pathCell;
-                    }
-                }
-            }
-        }
-        
-        return nearest;
     }
     
     /// <summary>
@@ -226,6 +110,15 @@ public class Enemy : MonoBehaviour, IDamageable
         }
         
         Vector2Int targetCell = pathCells[currentPathIndex];
+        
+        // Special case: if we hit a cell with coordinates (-1,-1), this is the end point
+        if (targetCell.x == -1 && targetCell.y == -1)
+        {
+            hasReachedDestination = true;
+            OnReachedDestination();
+            return;
+        }
+        
         float cellSize = gridManager.CellSize;
         
         // Convert grid coordinates to world position
@@ -255,17 +148,36 @@ public class Enemy : MonoBehaviour, IDamageable
             if (currentPathIndex >= pathCells.Count)
             {
                 hasReachedDestination = true;
-                
-                // Handle reaching the end of the path
-                // (e.g., deal damage to player base, destroy self, etc.)
                 OnReachedDestination();
             }
             else
             {
                 UpdateTargetPosition();
             }
+            return; // Skip movement this frame after changing targets
         }
-        else
+        
+        // Skip movement if almost at destination to prevent spinning
+        if (distanceToTarget < 0.05f)
+        {
+            // Force completion if very close
+            transform.position = new Vector3(currentTargetPosition.x, transform.position.y, currentTargetPosition.z);
+            currentPathIndex++;
+            
+            if (currentPathIndex >= pathCells.Count)
+            {
+                hasReachedDestination = true;
+                OnReachedDestination();
+            }
+            else
+            {
+                UpdateTargetPosition();
+            }
+            return;
+        }
+        
+        // Only proceed with movement if direction is valid
+        if (directionToTarget.sqrMagnitude > 0.001f)
         {
             // Move towards target
             Vector3 moveDirection = directionToTarget.normalized;
@@ -354,15 +266,20 @@ public class Enemy : MonoBehaviour, IDamageable
     /// </summary>
     private void OnReachedDestination()
     {
-        // Example: Notify game manager
-        // GameManager gameManager = FindObjectOfType<GameManager>();
-        // if (gameManager != null)
-        // {
-        //     gameManager.OnEnemyReachedEnd(this);
-        // }
+        Debug.Log("Enemy reached destination");
         
-        // Optionally destroy self after a delay
-        Destroy(gameObject, 2f);
+        // Look for a gate to attack
+        Gate gate = FindFirstObjectByType<Gate>();
+        if (gate != null)
+        {
+            // If there's a Gate component with IDamageable, set it as the target
+            IDamageable damageableGate = gate.GetComponent<IDamageable>();
+            if (damageableGate != null)
+            {
+                currentTarget = damageableGate;
+                currentTargetTransform = gate.transform;
+            }
+        }
     }
     
     /// <summary>
@@ -406,13 +323,6 @@ public class Enemy : MonoBehaviour, IDamageable
             enemyCollider.enabled = false;
         }
         
-        // Notify game manager for score/resources
-        // GameManager gameManager = FindFirstObjectByType<GameManager>();
-        // if (gameManager != null)
-        // {
-        //     gameManager.OnEnemyKilled(this);
-        // }
-        
         // Destroy the enemy after animation plays
         Destroy(gameObject, 2f);
     }
@@ -434,11 +344,15 @@ public class Enemy : MonoBehaviour, IDamageable
             
             for (int i = 0; i < pathCells.Count; i++)
             {
+                // Skip end marker
+                if (pathCells[i].x == -1 && pathCells[i].y == -1)
+                    continue;
+                    
                 Vector3 cellPosition = new Vector3(pathCells[i].x * cellSize, heightOffset, pathCells[i].y * cellSize);
                 Gizmos.DrawSphere(cellPosition, 0.2f);
                 
                 // Draw line between path points
-                if (i < pathCells.Count - 1)
+                if (i < pathCells.Count - 1 && !(pathCells[i+1].x == -1 && pathCells[i+1].y == -1))
                 {
                     Vector3 nextCellPosition = new Vector3(
                         pathCells[i + 1].x * cellSize,
@@ -453,10 +367,14 @@ public class Enemy : MonoBehaviour, IDamageable
             if (!hasReachedDestination && currentPathIndex < pathCells.Count)
             {
                 Vector2Int targetCell = pathCells[currentPathIndex];
-                Vector3 targetPosition = new Vector3(targetCell.x * cellSize, heightOffset, targetCell.y * cellSize);
-                
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawWireSphere(targetPosition, 0.3f);
+                // Skip end marker
+                if (!(targetCell.x == -1 && targetCell.y == -1))
+                {
+                    Vector3 targetPosition = new Vector3(targetCell.x * cellSize, heightOffset, targetCell.y * cellSize);
+                    
+                    Gizmos.color = Color.yellow;
+                    Gizmos.DrawWireSphere(targetPosition, 0.3f);
+                }
             }
         }
     }

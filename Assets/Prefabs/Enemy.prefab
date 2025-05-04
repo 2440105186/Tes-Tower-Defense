@@ -189,7 +189,7 @@ MonoBehaviour:
   maxHealth: 50
   currentHealth: 0
   moveSpeed: 2
-  turnSpeed: 5
+  turnSpeed: 10
   attackDamage: 10
   attackRange: 5
   attackRate: 1

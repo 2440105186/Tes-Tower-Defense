@@ -56,7 +56,6 @@ public class GridManager : MonoBehaviour
         // Initialize the cellLookup dictionary if it's empty
         if (cellLookup.Count == 0 && gridCells.Count > 0)
         {
-            Debug.Log($"GridManager: Initializing cellLookup dictionary from {gridCells.Count} existing grid cells");
             InitializeCellLookup();
         }
     }
@@ -75,8 +74,6 @@ public class GridManager : MonoBehaviour
                 cellLookup[cell.coordinates] = cell;
             }
         }
-        
-        Debug.Log($"GridManager: cellLookup dictionary initialized with {cellLookup.Count} entries");
     }
     
     [ContextMenu("Generate Grid")]
@@ -244,7 +241,6 @@ public class GridManager : MonoBehaviour
         if (cellLookup.TryGetValue(coordinates, out GridCell cell))
         {
             cell.isOccupied = occupied;
-            Debug.Log($"Cell {coordinates} occupation state set to: {occupied}");
         }
     }
 
@@ -257,10 +253,8 @@ public class GridManager : MonoBehaviour
     {
         if (cellLookup.TryGetValue(coordinates, out GridCell cell))
         {
-            print("Masuk sukses");
             return cell.isOccupied || cell.type == CellType.Path;
         }
-        print("Masuk gagal");
         return true; // Default to NOT occupied for invalid cells
     }
 }
