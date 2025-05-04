@@ -1,5 +1,4 @@
-﻿using System.Text;
-using UnityEngine;
+﻿using UnityEngine;
 
 public class TowerPlacementSystem : MonoBehaviour
 {
@@ -18,31 +17,6 @@ public class TowerPlacementSystem : MonoBehaviour
     {
         gridManager = FindFirstObjectByType<GridManager>();
         CreatePreviewTower();
-        
-        // Debug: Print all grid cells' occupied status
-        if (gridManager != null)
-        {
-            Debug.Log("Checking all grid cells' occupation status:");
-            StringBuilder statusReport = new StringBuilder();
-            
-            for (int x = 0; x < gridManager.GridSizeX; x++)
-            {
-                for (int y = 0; y < gridManager.GridSizeY; y++)
-                {
-                    Vector2Int cellPos = new Vector2Int(x, y);
-                    bool isOccupied = gridManager.IsCellOccupied(cellPos);
-                    bool isPath = gridManager.IsCellPath(cellPos);
-                    
-                    statusReport.AppendLine($"Cell ({x},{y}) - Occupied: {isOccupied}, Is Path: {isPath}");
-                }
-            }
-            
-            Debug.Log(statusReport.ToString());
-        }
-        else
-        {
-            Debug.LogError("GridManager not found!");
-        }
     }
 
 
