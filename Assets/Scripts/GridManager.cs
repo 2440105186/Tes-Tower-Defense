@@ -47,7 +47,8 @@ public class GridManager : MonoBehaviour
     public int GridSizeX => x;
     public int GridSizeY => y;
     public float CellSize => cellSize;
-    
+    public Material DefaultMaterial => defaultMaterial;
+    public Material PathMaterial => pathMaterial;
     public GameObject GatePrefab => gatePrefab;
     public GameObject SpawnedGate {get; private set;}
     
@@ -165,8 +166,7 @@ public class GridManager : MonoBehaviour
         }
         gridCells.Clear();
         cellLookup.Clear();
-        
-        // Note: We're keeping the pathCellCoordinates intact
+        pathCellCoordinates.Clear();
     }
     
     // Helper method to convert world position to grid cell coordinates
@@ -203,14 +203,21 @@ public class GridManager : MonoBehaviour
                         pathCellCoordinates.Remove(coordinates);
                         break;
                         
+                    // case CellType.Path:
+                    //     renderer.material = pathMaterial;
+                    //     // Add to path list if not already there
+                    //     if (!pathCellCoordinates.Contains(coordinates))
+                    //     {
+                    //         pathCellCoordinates.Add(coordinates);
+                    //     }
+                    //     break;
                     case CellType.Path:
                         renderer.material = pathMaterial;
-                        // Add to path list if not already there
-                        if (!pathCellCoordinates.Contains(coordinates))
-                        {
-                            pathCellCoordinates.Add(coordinates);
-                        }
+                        // Always add to the path list, even if it already exists
+                        // This allows creating loops by painting over existing path cells
+                        pathCellCoordinates.Add(coordinates);
                         break;
+
                 }
             }
         }
@@ -284,6 +291,7 @@ public class GridManagerEditor : Editor
     private bool eraserMode = false;
     
     private Vector2Int lastPaintedCell = new Vector2Int(-1, -1);
+    private Vector2Int lastProcessedCell = new Vector2Int(-1, -1);
     
     private void OnEnable()
     {
@@ -431,7 +439,6 @@ public class GridManagerEditor : Editor
             Debug.LogError("Failed to instantiate Gate prefab!");
         }
     }
-
     
     private void OnSceneGUI(SceneView sceneView)
     {
@@ -463,25 +470,40 @@ public class GridManagerEditor : Editor
                     Vector2Int cellCoords;
                     if (gridManager.TryGetCellAtPosition(hit.transform.position, out cellCoords))
                     {
-                        // Only make an Undo record for the first change in a drag sequence
-                        if (e.type == EventType.MouseDown)
+                        // Only process the cell if it's different from the last processed cell
+                        // This prevents adding the same cell multiple times during a drag operation
+                        if (!cellCoords.Equals(lastProcessedCell))
                         {
-                            Undo.RecordObject(gridManager, "Paint Cell");
+                            // Only make an Undo record for the first change in a drag sequence
+                            if (e.type == EventType.MouseDown)
+                            {
+                                Undo.RecordObject(gridManager, "Paint Cell");
+                            }
+                            
+                            // Only update if not erasing - we want to track the last painted path cell
+                            if (!eraserMode)
+                            {
+                                lastPaintedCell = cellCoords;
+                            }
+                            
+                            // Call SetCellType to update the cell's type and appearance
+                            gridManager.SetCellType(cellCoords, paintType);
+                            EditorUtility.SetDirty(gridManager);
+                            
+                            // Update the last processed cell
+                            lastProcessedCell = cellCoords;
                         }
-                        
-                        // Only update if not erasing - we want to track the last painted path cell
-                        if (!eraserMode)
-                        {
-                            lastPaintedCell = cellCoords;
-                        }
-                        
-                        gridManager.SetCellType(cellCoords, paintType);
-                        EditorUtility.SetDirty(gridManager);
                     }
                 }
             }
             
             e.Use(); // Consume the event
+        }
+        
+        // Reset lastProcessedCell when mouse is released
+        if (e.type == EventType.MouseUp && e.button == 0)
+        {
+            lastProcessedCell = new Vector2Int(-1, -1);
         }
         
         // Make cursor painting feel responsive by updating on mouse move
@@ -497,7 +519,6 @@ public class GridManagerEditor : Editor
         }
     }
     
-    // Update the ClearAllPaths method:
     private void ClearAllPaths()
     {
         // Delete any existing gate
@@ -507,20 +528,44 @@ public class GridManagerEditor : Editor
             Undo.DestroyObjectImmediate(gridManager.SpawnedGate);
             gridManager.SetSpawnedGate(null);
         }
-    
+
+        // First, collect all cells that are currently paths
+        List<Vector2Int> currentPathCells = new List<Vector2Int>(gridManager.GetPathCells());
+
+        // Clear the path cell coordinates array
         var pathCellsProperty = serializedObject.FindProperty("pathCellCoordinates");
         pathCellsProperty.ClearArray();
         serializedObject.ApplyModifiedProperties();
-    
-        // Update visual state - set all cells to default
+
+        // Now update the visuals for each cell that was previously a path
+        foreach (Vector2Int pathCell in currentPathCells)
+        {
+            // Skip the special end marker (-1, -1)
+            if (pathCell.x >= 0 && pathCell.y >= 0)
+            {
+                // Get the cell and reset its visual
+                if (gridManager.TryGetCellObject(pathCell, out GameObject cellObject))
+                {
+                    Renderer renderer = cellObject.GetComponent<Renderer>();
+                    if (renderer != null)
+                    {
+                        renderer.material = gridManager.DefaultMaterial;
+                    }
+                }
+            }
+        }
+
+        // Update cell type data for all cells
         for (int i = 0; i < gridManager.GridSizeX; i++)
         {
             for (int j = 0; j < gridManager.GridSizeY; j++)
             {
-                gridManager.SetCellType(new Vector2Int(i, j), CellType.Default);
+                Vector2Int coordinates = new Vector2Int(i, j);
+                // Update the cell type in the data structure
+                gridManager.SetCellType(coordinates, CellType.Default);
             }
         }
-    
+
         EditorUtility.SetDirty(gridManager);
     }
 }
