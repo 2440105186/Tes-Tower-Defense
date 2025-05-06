@@ -127,6 +127,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8485620650855074622}
   - component: {fileID: 840461492497857446}
+  - component: {fileID: 3504023667206119264}
   - component: {fileID: 7907360203330937716}
   m_Layer: 8
   m_Name: Enemy
@@ -174,6 +175,33 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1.5, z: 2.25}
   m_Center: {x: 0, y: 0.2, z: 0.13}
+--- !u!54 &3504023667206119264
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4483919610051224757}
+  serializedVersion: 4
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 4
+  m_CollisionDetection: 0
 --- !u!114 &7907360203330937716
 MonoBehaviour:
   m_ObjectHideFlags: 0
