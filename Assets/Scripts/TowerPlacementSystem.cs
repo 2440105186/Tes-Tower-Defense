@@ -212,7 +212,7 @@ public class TowerPlacementSystem : MonoBehaviour
         {
             // For 1x1 towers, use the current cell's center position
             gridManager.TryGetCellObject(currentCellCoordinates, out var cellObject);
-            placementPosition = cellObject.transform.position + Vector3.up * previewYOffset;
+            placementPosition = cellObject.transform.position;
         }
         else
         {
@@ -226,7 +226,7 @@ public class TowerPlacementSystem : MonoBehaviour
             // Position at the center of all cells
             placementPosition = new Vector3(
                 bottomLeftCell.transform.position.x + offsetX - (gridManager.CellSize / 2.0f),
-                previewYOffset,
+                0,
                 bottomLeftCell.transform.position.z + offsetZ - (gridManager.CellSize / 2.0f)
             );
         }
