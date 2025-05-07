@@ -65,9 +65,6 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Populates the cellLookup dictionary from the existing gridCells list
-    /// </summary>
     private void InitializeCellLookup()
     {
         cellLookup.Clear();
@@ -169,7 +166,6 @@ public class GridManager : MonoBehaviour
         pathCellCoordinates.Clear();
     }
     
-    // Helper method to convert world position to grid cell coordinates
     public bool TryGetCellAtPosition(Vector3 worldPosition, out Vector2Int cellCoordinates)
     {
         int cellX = Mathf.FloorToInt(worldPosition.x / cellSize);
@@ -180,7 +176,6 @@ public class GridManager : MonoBehaviour
         return cellX >= 0 && cellX < x && cellZ >= 0 && cellZ < y;
     }
     
-    // Set the type of a cell and update its visual appearance
     public void SetCellType(Vector2Int coordinates, CellType type)
     {
         // Make sure coordinates are valid
@@ -202,15 +197,6 @@ public class GridManager : MonoBehaviour
                         // Remove from path list if present
                         pathCellCoordinates.Remove(coordinates);
                         break;
-                        
-                    // case CellType.Path:
-                    //     renderer.material = pathMaterial;
-                    //     // Add to path list if not already there
-                    //     if (!pathCellCoordinates.Contains(coordinates))
-                    //     {
-                    //         pathCellCoordinates.Add(coordinates);
-                    //     }
-                    //     break;
                     case CellType.Path:
                         renderer.material = pathMaterial;
                         // Always add to the path list, even if it already exists
@@ -223,9 +209,6 @@ public class GridManager : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Try to get the GameObject for a specific cell
-    /// </summary>
     public bool TryGetCellObject(Vector2Int coordinates, out GameObject cellObject)
     {
         if (cellLookup.TryGetValue(coordinates, out GridCell cell) && cell.cellObject != null)
@@ -238,7 +221,6 @@ public class GridManager : MonoBehaviour
         return false;
     }
     
-    // Get the type of a cell
     public CellType GetCellType(Vector2Int coordinates)
     {
         if (cellLookup.TryGetValue(coordinates, out GridCell cell))
@@ -248,11 +230,6 @@ public class GridManager : MonoBehaviour
         return CellType.Default;
     }
     
-    /// <summary>
-    /// Set the occupied state of a cell
-    /// </summary>
-    /// <param name="coordinates">The coordinates of the cell</param>
-    /// <param name="occupied">Whether the cell is occupied</param>
     public void SetCellOccupied(Vector2Int coordinates, bool occupied)
     {
         if (cellLookup.TryGetValue(coordinates, out GridCell cell))
@@ -261,11 +238,6 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Check if a cell is occupied
-    /// </summary>
-    /// <param name="coordinates">The coordinates of the cell</param>
-    /// <returns>True if the cell is occupied or is a path, false otherwise</returns>
     public bool IsCellOccupied(Vector2Int coordinates)
     {
         if (cellLookup.TryGetValue(coordinates, out GridCell cell))
