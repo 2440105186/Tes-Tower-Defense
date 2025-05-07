@@ -11,6 +11,9 @@ public class Tower : DamageableStructure
         Closest
     }
     
+    [Header("Tower Type")]
+    [SerializeField] private TowerData towerData;
+    
     [Header("Tower Settings")]
     [SerializeField] private float rotationSpeed = 8f;
     [SerializeField] private TargetingMode targetingMode = TargetingMode.First;
@@ -19,50 +22,128 @@ public class Tower : DamageableStructure
     [SerializeField] private float targetReevaluationInterval = 0.5f;
     
     [Header("Tower Components")]
+    [SerializeField] private Transform visualTransform;
     [SerializeField] private Transform rotatablePart;
     [SerializeField] private TowerDetector detector;
     
+    private BoxCollider boxCollider;
     private List<Enemy> enemiesInRange = new List<Enemy>();
     private Enemy currentTarget;
     private Coroutine targetEvaluationCoroutine;
     private Vector3 lastTargetPosition;
     private float lastRotationUpdateTime;
     
-    // Add this to track target rotation
     private Quaternion currentTargetRotation;
     private bool isRotating = false;
     
     // Define whether the targeting mode needs frequent reevaluation
     private bool needsFrequentReevaluation = false;
+    
+    // List of cells this tower occupies
+    private List<Vector2Int> occupiedCells = new List<Vector2Int>();
+    
+    public TowerData TowerData => towerData;
 
-    protected override void Awake()
+    void Awake()
     {
+        // Initialize the base structure
         base.Awake();
+        
+        boxCollider = GetComponent<BoxCollider>();
+    
+        // Extract the grid position from the name
         ExtractGridPositionFromName();
+    }
+    
+    public void Initialize(TowerData towerDataInput)
+    {
+        if (towerDataInput != null)
+        {
+            // Store the tower data
+            towerData = towerDataInput;
         
-        // Determine if the current targeting mode needs frequent reevaluation
+            // Set tower properties from data
+            maxHealth = towerDataInput.MaxHealth;
+            rotationSpeed = towerDataInput.RotationSpeed;
+            boxCollider.size = new Vector3(towerDataInput.Size.x, boxCollider.size.y, towerDataInput.Size.y);
+        
+            // Create the visual representation
+            if (visualTransform == null)
+            {
+                visualTransform = transform;
+            }
+        
+            if (towerDataInput.ModelPrefab != null)
+            {
+                GameObject modelInstance = Instantiate(towerDataInput.ModelPrefab, visualTransform);
+            
+                // Try to find a rotatable part if none is assigned
+                if (rotatablePart == null)
+                {
+                    // Try to find a suitable rotatable part in the model
+                    Transform possibleRotatablePart = modelInstance.transform.GetChild(0);  // Assume first child is rotatable
+                    if (possibleRotatablePart != null)
+                    {
+                        rotatablePart = possibleRotatablePart;
+                    }
+                }
+            }
+        }
+    
+        // Set up the targeting behavior
         UpdateTargetingBehavior();
-        
-        // Initialize target rotation to the current rotation
+    
+        // Initialize target rotation
         if (rotatablePart != null)
         {
             currentTargetRotation = rotatablePart.rotation;
+        }
+    
+        // Initialize the detector if it exists
+        if (detector != null)
+        {
+            detector.SetRange(towerData?.AttackRange ?? 5f);
+            detector.OnEnemyEntered += OnEnemyEntered;
+            detector.OnEnemyExited += OnEnemyExited;
         }
     }
     
     private void Start()
     {
-        if (detector != null)
-        {
-            detector.OnEnemyEntered += OnEnemyEntered;
-            detector.OnEnemyExited += OnEnemyExited;
-        }
-        else
-        {
-            Debug.LogWarning("Tower has no detector assigned!", this);
-        }
-        
         lastRotationUpdateTime = Time.time;
+        
+        // Occupy all cells this tower covers
+        if (towerData != null && (towerData.Size.x > 1 || towerData.Size.y > 1))
+        {
+            OccupyCells(true);
+        }
+    }
+    
+    // Occupy or release all cells that this tower covers
+    private void OccupyCells(bool occupy)
+    {
+        if (gridManager == null || towerData == null) return;
+        
+        // Clear previous list of occupied cells
+        occupiedCells.Clear();
+        
+        // Occupy all cells within the tower's size
+        for (int x = 0; x < towerData.Size.x; x++)
+        {
+            for (int y = 0; y < towerData.Size.y; y++)
+            {
+                Vector2Int cellPos = new Vector2Int(coordinate.x + x, coordinate.y + y);
+                
+                // Mark cell as occupied/unoccupied in grid manager
+                gridManager.SetCellOccupied(cellPos, occupy);
+                
+                // Add to our list of occupied cells
+                if (occupy)
+                {
+                    occupiedCells.Add(cellPos);
+                }
+            }
+        }
     }
     
     private void Update()
@@ -383,8 +464,14 @@ public class Tower : DamageableStructure
             targetEvaluationCoroutine = null;
         }
         
-        if (gridManager)
+        // Release all occupied cells
+        if (towerData != null && (towerData.Size.x > 1 || towerData.Size.y > 1))
         {
+            OccupyCells(false);
+        }
+        else if (gridManager)
+        {
+            // For single-cell towers, just release the base cell
             gridManager.SetCellOccupied(coordinate, false);
         }
         

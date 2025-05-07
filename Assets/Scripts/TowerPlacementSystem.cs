@@ -1,43 +1,54 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
 
 public class TowerPlacementSystem : MonoBehaviour
 {
-    [Header("Tower Settings")]
+    [Header("Tower Data")]
+    [SerializeField] private List<TowerData> availableTowerTypes = new List<TowerData>();
+    [SerializeField] private int selectedTowerIndex = 0;
     [SerializeField] private GameObject towerPrefab;
+    
+    [Header("Config")]
     [SerializeField] private Material validPlacementMaterial;
     [SerializeField] private Material invalidPlacementMaterial;
     [SerializeField] private float previewYOffset = 0.1f;
     [SerializeField] private LayerMask gridLayerMask;
-
-    private GameObject previewTower;
+    
+    private GameObject previewObject;
     private bool canPlaceTower = false;
     private GridManager gridManager;
+    private Vector2Int currentCellCoordinates;
+    private List<Vector2Int> previewCells = new List<Vector2Int>();
+    
+    public TowerData CurrentTowerData => 
+        availableTowerTypes.Count > selectedTowerIndex ? availableTowerTypes[selectedTowerIndex] : null;
 
     private void Start()
     {
         gridManager = FindFirstObjectByType<GridManager>();
-        CreatePreviewTower();
-    }
-
-
-    private void CreatePreviewTower()
-    {
-        if (towerPrefab == null) return;
-
-        // Instantiate the preview tower based on the actual tower prefab
-        previewTower = Instantiate(towerPrefab);
-        
-        // Remove any scripts that might affect gameplay
-        foreach (var component in previewTower.GetComponents<MonoBehaviour>())
+        if (availableTowerTypes.Count > 0)
         {
-            if (component != null && component.GetType() != typeof(Transform))
-            {
-                Destroy(component);
-            }
+            CreateTowerPreview();
         }
-
-        // Get or add MeshRenderer components for all children to apply the preview material
-        foreach (var renderer in previewTower.GetComponentsInChildren<Renderer>())
+    }
+    
+    private void CreateTowerPreview()
+    {
+        if (previewObject != null)
+        {
+            Destroy(previewObject);
+        }
+        
+        TowerData towerData = CurrentTowerData;
+        if (towerData == null || towerData.ModelPrefab == null) return;
+        
+        previewObject = new GameObject("TowerPreview");
+        
+        GameObject modelInstance = Instantiate(towerData.ModelPrefab, previewObject.transform);
+        modelInstance.transform.localPosition = Vector3.zero;
+        
+        // Apply preview material to all renderers
+        foreach (var renderer in previewObject.GetComponentsInChildren<Renderer>())
         {
             Material[] materials = new Material[renderer.materials.Length];
             for (int i = 0; i < materials.Length; i++)
@@ -46,97 +57,200 @@ public class TowerPlacementSystem : MonoBehaviour
             }
             renderer.materials = materials;
         }
-
-        // Disable the preview tower initially
-        previewTower.SetActive(false);
+        
+        previewObject.SetActive(false);
     }
-
+    
+    public void SelectTowerType(int index)
+    {
+        if (index >= 0 && index < availableTowerTypes.Count)
+        {
+            selectedTowerIndex = index;
+            CreateTowerPreview();
+        }
+    }
+    
     private void Update()
     {
         UpdateTowerPreview();
         HandleTowerPlacement();
+        
+        // Allow cycling through tower types with Tab key
+        if (Input.GetKeyDown(KeyCode.Tab) && availableTowerTypes.Count > 1)
+        {
+            selectedTowerIndex = (selectedTowerIndex + 1) % availableTowerTypes.Count;
+            CreateTowerPreview();
+        }
     }
-
+    
     private void UpdateTowerPreview()
     {
-        if (gridManager == null) return;
-
+        if (gridManager == null || previewObject == null) return;
+        
         // Cast ray from mouse position to find grid cell
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
-
+        
         if (Physics.Raycast(ray, out hit, 100f, gridLayerMask))
         {
+            // Make preview visible
+            previewObject.SetActive(true);
+            
             // Get the cell coordinates
-            string[] cellNameParts = hit.transform.name.Split('_');
-            if (cellNameParts.Length >= 3)
+            if (gridManager.TryGetCellAtPosition(hit.transform.position, out Vector2Int cellCoords))
             {
-                int cellX = int.Parse(cellNameParts[1]);
-                int cellY = int.Parse(cellNameParts[2]);
+                currentCellCoordinates = cellCoords;
                 
-                // Get the cell coordinates
-                Vector2Int cellPos = new Vector2Int(cellX, cellY);
-
-                // Check if the cell is available for placement
-                canPlaceTower = !gridManager.IsCellOccupied(cellPos);
-
-                // Show preview at the cell position
-                previewTower.SetActive(true);
-                previewTower.transform.position = new Vector3(
-                    hit.transform.position.x, 
-                    hit.transform.position.y + previewYOffset, 
-                    hit.transform.position.z
-                );
-
-                // Apply material based on placement validity
-                Material previewMaterial = canPlaceTower ? validPlacementMaterial : invalidPlacementMaterial;
-                foreach (var renderer in previewTower.GetComponentsInChildren<Renderer>())
+                if (availableTowerTypes[selectedTowerIndex].Size.x == 1 && availableTowerTypes[selectedTowerIndex].Size.y == 1)
                 {
-                    Material[] materials = new Material[renderer.materials.Length];
-                    for (int i = 0; i < materials.Length; i++)
-                    {
-                        materials[i] = previewMaterial;
-                    }
-                    renderer.materials = materials;
+                    // Position the preview on top of the cell
+                    previewObject.transform.position = hit.transform.position + Vector3.up * previewYOffset;
                 }
+                else
+                {
+                    // We have the current cell
+                    gridManager.TryGetCellObject(currentCellCoordinates, out var currentCellObject);
+    
+                    // For multi-cell tower, calculate the center position based on the current cell
+                    // The tower's origin should be at the bottom-left corner (the current cell)
+                    float offsetX = (availableTowerTypes[selectedTowerIndex].Size.x * gridManager.CellSize) / 2.0f;
+                    float offsetZ = (availableTowerTypes[selectedTowerIndex].Size.y * gridManager.CellSize) / 2.0f;
+    
+                    // Position the preview at the center of the multi-cell area
+                    previewObject.transform.position = new Vector3(
+                        currentCellObject.transform.position.x + offsetX - (gridManager.CellSize / 2.0f),
+                        previewYOffset,
+                        currentCellObject.transform.position.z + offsetZ - (gridManager.CellSize / 2.0f)
+                    );
+                }
+                
+                // Check if all cells needed for this tower are available
+                canPlaceTower = CanPlaceTowerAt(cellCoords);
+                
+                // Update preview materials based on placement validity
+                UpdatePreviewMaterial(canPlaceTower);
             }
         }
         else
         {
             // Hide preview if not over any grid cell
-            previewTower.SetActive(false);
+            previewObject.SetActive(false);
             canPlaceTower = false;
         }
     }
-
+    
+    private bool CanPlaceTowerAt(Vector2Int baseCell)
+    {
+        TowerData towerData = CurrentTowerData;
+        if (towerData == null) return false;
+        
+        // Clear previous preview cells
+        previewCells.Clear();
+        
+        // Check if all cells needed for this tower are valid and available
+        for (int x = 0; x < towerData.Size.x; x++)
+        {
+            for (int y = 0; y < towerData.Size.y; y++)
+            {
+                Vector2Int cellToCheck = new Vector2Int(baseCell.x + x, baseCell.y + y);
+                
+                // Check if this cell is within grid bounds
+                if (cellToCheck.x < 0 || cellToCheck.x >= gridManager.GridSizeX || 
+                    cellToCheck.y < 0 || cellToCheck.y >= gridManager.GridSizeY)
+                {
+                    return false;
+                }
+                
+                // Check if this cell is already occupied
+                if (gridManager.IsCellOccupied(cellToCheck))
+                {
+                    return false;
+                }
+                
+                // Add to preview cells
+                previewCells.Add(cellToCheck);
+            }
+        }
+        
+        return true;
+    }
+    
+    private void UpdatePreviewMaterial(bool validPlacement)
+    {
+        if (previewObject == null) return;
+        
+        Material previewMaterial = validPlacement ? validPlacementMaterial : invalidPlacementMaterial;
+        
+        foreach (var renderer in previewObject.GetComponentsInChildren<Renderer>())
+        {
+            Material[] materials = new Material[renderer.materials.Length];
+            for (int i = 0; i < materials.Length; i++)
+            {
+                materials[i] = previewMaterial;
+            }
+            renderer.materials = materials;
+        }
+    }
+    
     private void HandleTowerPlacement()
     {
         if (Input.GetMouseButtonDown(0) && canPlaceTower && gridManager != null)
         {
-            // Get the current position from the preview
-            Vector3 placementPosition = previewTower.transform.position;
+            PlaceTowerAtCurrentCell();
+        }
+    }
+    
+    private void PlaceTowerAtCurrentCell()
+    {
+        TowerData towerData = CurrentTowerData;
+        if (towerData == null || towerPrefab == null) return;
+        
+        // Calculate the center position for the tower based on its size
+        Vector3 placementPosition;
+        
+        if (towerData.Size.x == 1 && towerData.Size.y == 1)
+        {
+            // For 1x1 towers, use the current cell's center position
+            gridManager.TryGetCellObject(currentCellCoordinates, out var cellObject);
+            placementPosition = cellObject.transform.position + Vector3.up * previewYOffset;
+        }
+        else
+        {
+            // For multi-cell towers, calculate the center position of all occupied cells
+            gridManager.TryGetCellObject(currentCellCoordinates, out var bottomLeftCell);
             
-            // Calculate grid coordinates
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit hit;
+            // Calculate offsets to center based on tower size and cell size
+            float offsetX = (towerData.Size.x * gridManager.CellSize) / 2.0f;
+            float offsetZ = (towerData.Size.y * gridManager.CellSize) / 2.0f;
             
-            if (Physics.Raycast(ray, out hit, 100f, gridLayerMask))
-            {
-                string[] cellNameParts = hit.transform.name.Split('_');
-                if (cellNameParts.Length >= 3)
-                {
-                    int cellX = int.Parse(cellNameParts[1]);
-                    int cellY = int.Parse(cellNameParts[2]);
-                    Vector2Int cellPos = new Vector2Int(cellX, cellY);
-                    
-                    // Create actual tower at position
-                    GameObject placedTower = Instantiate(towerPrefab, placementPosition, Quaternion.identity);
-                    placedTower.name = $"Tower_{cellX}_{cellY}";
-                    
-                    // Mark cell as occupied in the grid manager
-                    gridManager.SetCellOccupied(cellPos, true);
-                }
-            }
+            // Position at the center of all cells
+            placementPosition = new Vector3(
+                bottomLeftCell.transform.position.x + offsetX - (gridManager.CellSize / 2.0f),
+                previewYOffset,
+                bottomLeftCell.transform.position.z + offsetZ - (gridManager.CellSize / 2.0f)
+            );
+        }
+        
+        // Instantiate the tower prefab at the calculated position
+        GameObject towerObject = Instantiate(towerPrefab, placementPosition, Quaternion.identity);
+        towerObject.name = $"Tower_{currentCellCoordinates.x}_{currentCellCoordinates.y}";
+        
+        // Get the Tower component from the prefab instance
+        Tower tower = towerObject.GetComponent<Tower>();
+        if (tower != null)
+        {
+            // Initialize the tower with the tower data
+            tower.Initialize(towerData);
+            
+            // Mark the base cell as occupied
+            gridManager.SetCellOccupied(currentCellCoordinates, true);
+            
+            Debug.Log($"Placed {towerData.TowerName} at ({currentCellCoordinates.x}, {currentCellCoordinates.y})");
+        }
+        else
+        {
+            Debug.LogError("Tower component not found on the instantiated tower prefab!");
+            Destroy(towerObject);
         }
     }
 }

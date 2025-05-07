@@ -11118,6 +11118,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e46a8e3fd0fdac4dad8321face8097d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  availableTowerTypes:
+  - {fileID: 11400000, guid: 73d878d3c268cf746a54d06cf1b3d606, type: 2}
+  - {fileID: 11400000, guid: 3c4be71e3e62eab488cccc512ba63875, type: 2}
+  selectedTowerIndex: 0
   towerPrefab: {fileID: 188745167667263118, guid: 3b00afe1b750050428232375c43cbb16, type: 3}
   validPlacementMaterial: {fileID: 2100000, guid: 52a1bf6f82656444fb945b2d71dd65a2, type: 2}
   invalidPlacementMaterial: {fileID: 2100000, guid: 69403bde018f2c648b933db4ad7af09f, type: 2}

@@ -1,42 +1,62 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
+using System;
 
 public class TowerDetector : MonoBehaviour
 {
-    private SphereCollider detectionCollider;
-    private Tower parentTower;
+    [SerializeField] private bool showGizmo = true;
+    [SerializeField] private Color gizmoColor = new Color(1f, 0f, 0f, 0.2f);
+    
+    private SphereCollider sphereCollider;
     
     public event Action<Enemy> OnEnemyEntered;
     public event Action<Enemy> OnEnemyExited;
     
     private void Awake()
     {
-        detectionCollider = GetComponent<SphereCollider>();
-        parentTower = GetComponentInParent<Tower>();
-        
-        if (parentTower == null)
+        sphereCollider = GetComponent<SphereCollider>();
+        if (sphereCollider == null)
         {
-            Debug.LogError("TowerDetector must be a child of a Tower component!", this);
+            sphereCollider = gameObject.AddComponent<SphereCollider>();
+        }
+        
+        sphereCollider.isTrigger = true;
+    }
+    
+    public void SetRange(float newRange)
+    {
+        if (sphereCollider != null)
+        {
+            sphereCollider.radius = newRange;
         }
     }
-
+    
     private void OnTriggerEnter(Collider other)
     {
-        Enemy enemy = other.gameObject.GetComponent<Enemy>();
+        Enemy enemy = other.GetComponent<Enemy>();
         if (enemy != null)
         {
-            // Notify parent tower that enemy entered range
             OnEnemyEntered?.Invoke(enemy);
         }
     }
     
     private void OnTriggerExit(Collider other)
     {
-        Enemy enemy = other.gameObject.GetComponent<Enemy>();
+        Enemy enemy = other.GetComponent<Enemy>();
         if (enemy != null)
         {
-            // Notify parent tower that enemy left range
             OnEnemyExited?.Invoke(enemy);
+        }
+    }
+    
+    private void OnDrawGizmos()
+    {
+        if (showGizmo)
+        {
+            Gizmos.color = gizmoColor;
+            if (sphereCollider)
+            {
+                Gizmos.DrawSphere(transform.position, sphereCollider.radius);
+            }
         }
     }
 }
