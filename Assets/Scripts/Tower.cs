@@ -44,7 +44,7 @@ public class Tower : DamageableStructure
     
     public TowerData TowerData => towerData;
 
-    void Awake()
+    protected override void Awake()
     {
         // Initialize the base structure
         base.Awake();
