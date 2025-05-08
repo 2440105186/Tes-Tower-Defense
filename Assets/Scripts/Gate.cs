@@ -1,9 +1,6 @@
 ﻿using UnityEngine;
 using System;
 
-/// <summary>
-/// Represents a gate that defends the player's base and can take damage
-/// </summary>
 public class Gate : DamageableStructure
 {
     // Static event to notify when any gate is destroyed

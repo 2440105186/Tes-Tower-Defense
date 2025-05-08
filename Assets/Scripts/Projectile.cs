@@ -1,9 +1,6 @@
 ﻿using System;
 using UnityEngine;
 
-/// <summary>
-/// Represents a projectile fired by a tower
-/// </summary>
 public class Projectile : MonoBehaviour
 {
     [Header("Projectile Settings")]
@@ -24,11 +21,6 @@ public class Projectile : MonoBehaviour
         Destroy(gameObject, maxLifetime);
     }
     
-    /// <summary>
-    /// Initialize projectile with damage and target
-    /// </summary>
-    /// <param name="damageAmount">Amount of damage this projectile deals</param>
-    /// <param name="targetTransform">Target to track (can be null for unguided projectiles)</param>
     public void Initialize(float damageAmount)
     {
         damage = damageAmount;

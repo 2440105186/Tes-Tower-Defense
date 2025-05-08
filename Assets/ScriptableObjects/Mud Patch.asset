@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfca091c0519b9b4396a29c1bb34be4e, type: 3}
+  m_Name: Mud Patch
+  m_EditorClassIdentifier: 
+  objectName: Mud
+  description: "Slows down enemies walking through it.\r"
+  modelPrefab: {fileID: 0}
+  size: {x: 1, y: 1}
+  isDestructible: 0
+  maxHealth: 50
+  effects:
+  - {fileID: 11400000, guid: 95ba3c4bfa2cf6042828c5a72393e283, type: 2}

@@ -1,9 +1,6 @@
 ﻿using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Extremely basic enemy wave spawner - just spawns enemies at a position with delays
-/// </summary>
 public class EnemySpawner : MonoBehaviour
 {
     [SerializeField] private GameObject enemyPrefab;
@@ -24,9 +21,6 @@ public class EnemySpawner : MonoBehaviour
         SpawnWave();
     }
 
-    /// <summary>
-    /// Start spawning enemies
-    /// </summary>
     public void SpawnWave()
     {
         StartCoroutine(SpawnEnemies());
