@@ -200,6 +200,7 @@ public class TowerPlacementSystem : MonoBehaviour
         }
     }
     
+    
     private void PlaceTowerAtCurrentCell()
     {
         TowerData towerData = CurrentTowerData;
@@ -208,26 +209,24 @@ public class TowerPlacementSystem : MonoBehaviour
         // Calculate the center position for the tower based on its size
         Vector3 placementPosition;
         
+        gridManager.TryGetCellObject(currentCellCoordinates, out var originObject);
         if (towerData.Size.x == 1 && towerData.Size.y == 1)
         {
             // For 1x1 towers, use the current cell's center position
-            gridManager.TryGetCellObject(currentCellCoordinates, out var cellObject);
-            placementPosition = cellObject.transform.position;
+            placementPosition = originObject.transform.position;
         }
         else
         {
             // For multi-cell towers, calculate the center position of all occupied cells
-            gridManager.TryGetCellObject(currentCellCoordinates, out var bottomLeftCell);
-            
             // Calculate offsets to center based on tower size and cell size
             float offsetX = (towerData.Size.x * gridManager.CellSize) / 2.0f;
             float offsetZ = (towerData.Size.y * gridManager.CellSize) / 2.0f;
             
             // Position at the center of all cells
             placementPosition = new Vector3(
-                bottomLeftCell.transform.position.x + offsetX - (gridManager.CellSize / 2.0f),
+                originObject.transform.position.x + offsetX - (gridManager.CellSize / 2.0f),
                 0,
-                bottomLeftCell.transform.position.z + offsetZ - (gridManager.CellSize / 2.0f)
+                originObject.transform.position.z + offsetZ - (gridManager.CellSize / 2.0f)
             );
         }
         
@@ -240,10 +239,7 @@ public class TowerPlacementSystem : MonoBehaviour
         if (tower != null)
         {
             // Initialize the tower with the tower data
-            tower.Initialize(towerData);
-            
-            // Mark the base cell as occupied
-            gridManager.SetCellOccupied(currentCellCoordinates, true);
+            tower.Initialize(towerData, currentCellCoordinates);
             
             Debug.Log($"Placed {towerData.TowerName} at ({currentCellCoordinates.x}, {currentCellCoordinates.y})");
         }

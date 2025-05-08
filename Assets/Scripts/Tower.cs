@@ -50,17 +50,15 @@ public class Tower : DamageableStructure
         base.Awake();
         
         boxCollider = GetComponent<BoxCollider>();
-    
-        // Extract the grid position from the name
-        ExtractGridPositionFromName();
     }
     
-    public void Initialize(TowerData towerDataInput)
+    public void Initialize(TowerData towerDataInput, Vector2Int originCoordinate)
     {
         if (towerDataInput != null)
         {
             // Store the tower data
             towerData = towerDataInput;
+            coordinate = originCoordinate;
         
             // Set tower properties from data
             maxHealth = towerDataInput.MaxHealth;
@@ -113,7 +111,7 @@ public class Tower : DamageableStructure
         lastRotationUpdateTime = Time.time;
         
         // Occupy all cells this tower covers
-        if (towerData != null && (towerData.Size.x > 1 || towerData.Size.y > 1))
+        if (towerData != null)
         {
             OccupyCells(true);
         }
@@ -185,20 +183,6 @@ public class Tower : DamageableStructure
             {
                 rotatablePart.rotation = currentTargetRotation;
                 isRotating = (currentTarget != null); // Keep rotating only if we still have a target
-            }
-        }
-    }
-    
-    private void ExtractGridPositionFromName()
-    {
-        string[] nameParts = gameObject.name.Split('_');
-        
-        if (nameParts.Length >= 3 && nameParts[0] == "Tower")
-        {
-            if (int.TryParse(nameParts[1], out int x) && int.TryParse(nameParts[2], out int y))
-            {
-                coordinate = new Vector2Int(x, y);
-                Debug.Log($"Tower initialized at grid position {coordinate}");
             }
         }
     }
