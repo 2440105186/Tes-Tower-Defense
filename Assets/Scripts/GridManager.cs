@@ -1,8 +1,6 @@
-using System;
 using TMPro;
 using UnityEngine;
 using System.Collections.Generic;
-using Unity.VisualScripting.FullSerializer;
 
 public class GridManager : MonoBehaviour
 {
@@ -39,9 +37,17 @@ public class GridManager : MonoBehaviour
     public List<Vector2Int> GetPathCells() => pathCellCoordinates;
     
     public bool IsCellPath(Vector2Int coordinates) => pathCellCoordinates.Contains(coordinates);
+    public static GridManager Instance;
     
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        
         // Initialize the cellLookup dictionary if it's empty
         if (cellLookup.Count == 0 && gridCells.Count > 0)
         {

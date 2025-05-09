@@ -15,7 +15,7 @@ MonoBehaviour:
   towerName: 40mm Auto Cannon
   description: A basic tower that attacks enemies.
   modelPrefab: {fileID: 272643041052378337, guid: 1616db4ba64495b4792968a4e80c94b0, type: 3}
-  maxHealth: 100
+  maxHealth: 10000
   rotationSpeed: 8
   attackRange: 5
   size: {x: 1, y: 1}

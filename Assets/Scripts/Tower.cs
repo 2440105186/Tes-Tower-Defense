@@ -63,7 +63,7 @@ public class Tower : DamageableStructure
             coordinate = originCoordinate;
         
             // Set tower properties from data
-            maxHealth = towerDataInput.MaxHealth;
+            currentHealth = towerDataInput.MaxHealth;
             rotationSpeed = towerDataInput.RotationSpeed;
             boxCollider.size = new Vector3(towerDataInput.Size.x, boxCollider.size.y, towerDataInput.Size.y);
             visionModes = towerDataInput.VisionModes;
@@ -150,7 +150,7 @@ public class Tower : DamageableStructure
     private void Update()
     {
         // Update target rotation if we have a valid target
-        if (currentTarget != null && rotatablePart != null && currentTarget.isActiveAndEnabled)
+        if (currentTarget != null && rotatablePart != null && currentTarget.isActiveAndEnabled && CheckTargetingValidity(currentTarget))
         {
             // Get the current position of the target
             Vector3 targetPosition = currentTarget.transform.position;
@@ -169,6 +169,10 @@ public class Tower : DamageableStructure
             
             // Store the last known position of our target
             lastTargetPosition = targetPosition;
+        }
+        else
+        {
+            isRotating = false;
         }
         
         // Always smoothly rotate towards the current target rotation
@@ -326,13 +330,14 @@ public class Tower : DamageableStructure
         }
     }
 
-    private void CheckTargetingValidity(Enemy enemy, out bool bHasLos, out bool bCanSee)
+    private bool CheckTargetingValidity(Enemy enemy)
     {
         Vector3 directionToEnemy = (enemy.transform.position - transform.position).normalized;
         Ray ray = new Ray(transform.position + Vector3.up * 0.5f, directionToEnemy);
         float distanceToEnemy = Vector3.Distance(transform.position, enemy.transform.position);
-        bHasLos = Physics.Raycast(ray, out var hit, distanceToEnemy, lineOfSightLayerMask);
-        bCanSee = (visionModes & enemy.DetectedModes) != VisionModes.None;
+        bool bHasLos = Physics.Raycast(ray, out var hit, distanceToEnemy, lineOfSightLayerMask);
+        bool bCanSee = (visionModes & enemy.CurrentDetectedBy) != VisionModes.None;
+        return bHasLos && bCanSee;
     }
     
     private void SelectEnemyFirst()
@@ -346,9 +351,7 @@ public class Tower : DamageableStructure
         
             if (pathIndex > maxPathIndex)
             {
-                CheckTargetingValidity(enemy, out var hasLos, out var canSee);
-
-                if (hasLos && canSee)
+                if (CheckTargetingValidity(enemy))
                 {
                     maxPathIndex = pathIndex;
                     furthestEnemy = enemy;
@@ -371,9 +374,7 @@ public class Tower : DamageableStructure
             
             if (pathIndex < minPathIndex)
             {
-                CheckTargetingValidity(enemy, out var hasLos, out var canSee);
-
-                if (hasLos && canSee)
+                if (CheckTargetingValidity(enemy))
                 {
                     minPathIndex = pathIndex;
                     lastEnemy = enemy;
@@ -396,9 +397,7 @@ public class Tower : DamageableStructure
             
             if (distance < minDistance)
             {
-                CheckTargetingValidity(enemy, out var hasLos, out var canSee);
-
-                if (hasLos && canSee)
+                if (CheckTargetingValidity(enemy))
                 {
                     minDistance = distance;
                     closestEnemy = enemy;
