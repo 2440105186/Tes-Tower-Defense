@@ -12,6 +12,8 @@ public class GridManagerEditor : Editor
     
     private Vector2Int lastPaintedCell = new Vector2Int(-1, -1);
     private Vector2Int lastProcessedCell = new Vector2Int(-1, -1);
+
+    private const float GATE_SPAWN_OFFSET_Y = 1f;
     
     private void OnEnable()
     {
@@ -118,7 +120,7 @@ public class GridManagerEditor : Editor
             Undo.RegisterCreatedObjectUndo(gate, "Create Gate");
             
             // Position the gate
-            gate.transform.position = gatePosition;
+            gate.transform.position = gatePosition + Vector3.up * GATE_SPAWN_OFFSET_Y;
             gate.name = "Gate";
             
             // Make the gate a child of the grid manager

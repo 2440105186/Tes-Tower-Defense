@@ -97,9 +97,9 @@ public class TowerPlacementSystem : MonoBehaviour
             previewObject.SetActive(true);
             
             // Get the cell coordinates
-            if (gridManager.TryGetCellAtPosition(hit.transform.position, out Vector2Int cellCoords))
+            if (hit.collider.gameObject.TryGetComponent<GridCell>(out var cell))
             {
-                currentCellCoordinates = cellCoords;
+                currentCellCoordinates = cell.coordinates;
                 
                 if (availableTowerTypes[selectedTowerIndex].Size.x == 1 && availableTowerTypes[selectedTowerIndex].Size.y == 1)
                 {
@@ -108,9 +108,6 @@ public class TowerPlacementSystem : MonoBehaviour
                 }
                 else
                 {
-                    // We have the current cell
-                    gridManager.TryGetCellObject(currentCellCoordinates, out var currentCellObject);
-    
                     // For multi-cell tower, calculate the center position based on the current cell
                     // The tower's origin should be at the bottom-left corner (the current cell)
                     float offsetX = (availableTowerTypes[selectedTowerIndex].Size.x * gridManager.CellSize) / 2.0f;
@@ -118,14 +115,14 @@ public class TowerPlacementSystem : MonoBehaviour
     
                     // Position the preview at the center of the multi-cell area
                     previewObject.transform.position = new Vector3(
-                        currentCellObject.transform.position.x + offsetX - (gridManager.CellSize / 2.0f),
+                        cell.transform.position.x + offsetX - (gridManager.CellSize / 2.0f),
                         previewYOffset,
-                        currentCellObject.transform.position.z + offsetZ - (gridManager.CellSize / 2.0f)
+                        cell.transform.position.z + offsetZ - (gridManager.CellSize / 2.0f)
                     );
                 }
                 
                 // Check if all cells needed for this tower are available
-                canPlaceTower = CanPlaceTowerAt(cellCoords);
+                canPlaceTower = CanPlaceTowerAt(currentCellCoordinates);
                 
                 // Update preview materials based on placement validity
                 UpdatePreviewMaterial(canPlaceTower);

@@ -12,6 +12,7 @@ public class Enemy : MonoBehaviour, IDamageable
     [SerializeField] private float attackRange = 5f;
     [SerializeField] private float attackRate = 1f;
     [SerializeField] private LayerMask targetLayers;
+    [SerializeField] private VisionModes detectedModes = VisionModes.Visual;
     
     [Header("Movement")]
     [SerializeField] private float cellArrivalThreshold = 0.1f;
@@ -26,6 +27,7 @@ public class Enemy : MonoBehaviour, IDamageable
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
     public int CurrentPathIndex { get; private set; } = 0;
+    public VisionModes DetectedModes => detectedModes;
     
     private GridManager gridManager;
     private List<Vector2Int> pathCells = new List<Vector2Int>();

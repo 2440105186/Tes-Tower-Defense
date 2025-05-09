@@ -10,12 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dfb8c534cfe6f3c4ab540e6a3dbd9265, type: 3}
-  m_Name: Turret 2x4
+  m_Name: CIWS
   m_EditorClassIdentifier: 
-  towerName: Basic Tower 2x4
+  towerName: CIWS
   description: A basic tower that attacks enemies.
-  modelPrefab: {fileID: 3752027866389465470, guid: 0740e0e2520889b46ac4d76b49970a30, type: 3}
+  modelPrefab: {fileID: 2770157336191878209, guid: 8a83220e2c4aae04b8cfe2f3727122f8, type: 3}
   maxHealth: 100
   rotationSpeed: 8
   attackRange: 5
-  size: {x: 2, y: 4}
+  size: {x: 1, y: 1}
+  visionMode: 1

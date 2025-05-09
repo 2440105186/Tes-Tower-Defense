@@ -2,21 +2,22 @@
 using System.Collections;
 using System.Collections.Generic;
 
+public enum TargetingMode
+{
+    First,
+    Last,
+    Closest
+}
+
 public class Tower : DamageableStructure
 {
-    public enum TargetingMode
-    {
-        First,
-        Last,
-        Closest
-    }
-    
     [Header("Tower Type")]
     [SerializeField] private TowerData towerData;
     
     [Header("Tower Settings")]
     [SerializeField] private float rotationSpeed = 8f;
     [SerializeField] private TargetingMode targetingMode = TargetingMode.First;
+    [SerializeField] private VisionModes visionModes = VisionModes.Visual;
     
     [Header("Target Reevaluation")]
     [SerializeField] private float targetReevaluationInterval = 0.5f;
@@ -25,6 +26,7 @@ public class Tower : DamageableStructure
     [SerializeField] private Transform visualTransform;
     [SerializeField] private Transform rotatablePart;
     [SerializeField] private TowerDetector detector;
+    [SerializeField] private  LayerMask lineOfSightLayerMask;
     
     private BoxCollider boxCollider;
     private List<Enemy> enemiesInRange = new List<Enemy>();
@@ -64,6 +66,7 @@ public class Tower : DamageableStructure
             maxHealth = towerDataInput.MaxHealth;
             rotationSpeed = towerDataInput.RotationSpeed;
             boxCollider.size = new Vector3(towerDataInput.Size.x, boxCollider.size.y, towerDataInput.Size.y);
+            visionModes = towerDataInput.VisionModes;
         
             // Create the visual representation
             if (visualTransform == null)
@@ -322,23 +325,38 @@ public class Tower : DamageableStructure
             isRotating = true;
         }
     }
+
+    private void CheckTargetingValidity(Enemy enemy, out bool bHasLos, out bool bCanSee)
+    {
+        Vector3 directionToEnemy = (enemy.transform.position - transform.position).normalized;
+        Ray ray = new Ray(transform.position + Vector3.up * 0.5f, directionToEnemy);
+        float distanceToEnemy = Vector3.Distance(transform.position, enemy.transform.position);
+        bHasLos = Physics.Raycast(ray, out var hit, distanceToEnemy, lineOfSightLayerMask);
+        bCanSee = (visionModes & enemy.DetectedModes) != VisionModes.None;
+    }
     
     private void SelectEnemyFirst()
     {
         int maxPathIndex = -1;
         Enemy furthestEnemy = null;
-        
+    
         foreach (Enemy enemy in enemiesInRange)
         {
             int pathIndex = enemy.CurrentPathIndex;
-            
+        
             if (pathIndex > maxPathIndex)
             {
-                maxPathIndex = pathIndex;
-                furthestEnemy = enemy;
+                CheckTargetingValidity(enemy, out var hasLos, out var canSee);
+
+                if (hasLos && canSee)
+                {
+                    maxPathIndex = pathIndex;
+                    furthestEnemy = enemy;
+                    break;
+                }
             }
         }
-        
+    
         currentTarget = furthestEnemy;
     }
     
@@ -353,8 +371,14 @@ public class Tower : DamageableStructure
             
             if (pathIndex < minPathIndex)
             {
-                minPathIndex = pathIndex;
-                lastEnemy = enemy;
+                CheckTargetingValidity(enemy, out var hasLos, out var canSee);
+
+                if (hasLos && canSee)
+                {
+                    minPathIndex = pathIndex;
+                    lastEnemy = enemy;
+                    break;
+                }
             }
         }
         
@@ -372,8 +396,14 @@ public class Tower : DamageableStructure
             
             if (distance < minDistance)
             {
-                minDistance = distance;
-                closestEnemy = enemy;
+                CheckTargetingValidity(enemy, out var hasLos, out var canSee);
+
+                if (hasLos && canSee)
+                {
+                    minDistance = distance;
+                    closestEnemy = enemy;
+                    break;
+                }
             }
         }
         

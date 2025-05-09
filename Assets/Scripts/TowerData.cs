@@ -1,4 +1,14 @@
 ﻿using UnityEngine;
+using UnityEngine.Serialization;
+
+[System.Flags]
+public enum VisionModes
+{
+    None = 0,
+    Visual = 1 << 0,    // 1
+    Radar = 1 << 1,     // 2
+    Thermal = 1 << 2    // 4
+}
 
 [CreateAssetMenu(fileName = "NewTowerData", menuName = "Tower Defense/Tower Data")]
 public class TowerData : ScriptableObject
@@ -15,7 +25,9 @@ public class TowerData : ScriptableObject
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private float rotationSpeed = 8f;
     [SerializeField] private float attackRange = 5f;
-    [SerializeField] private Vector2Int size = Vector2Int.one; // Size in grid cells (x,y)
+    [SerializeField] private Vector2Int size = Vector2Int.one;
+    [SerializeField] private VisionModes visionMode = VisionModes.Visual;
+
     
     // Public properties
     public string TowerName => towerName;
@@ -25,4 +37,5 @@ public class TowerData : ScriptableObject
     public float RotationSpeed => rotationSpeed;
     public float AttackRange => attackRange;
     public Vector2Int Size => size;
+    public VisionModes VisionModes => visionMode;
 }
