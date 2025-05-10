@@ -233,7 +233,7 @@ MonoBehaviour:
   firePoint: {fileID: 3400025861045195132}
   projectilePrefab: {fileID: 4504101681686529513, guid: a3ece60e32e133441b4f0bf1324aa1d2, type: 3}
   CurrentMoveSpeed: 0
-  CurrentDetectedBy: 0
+  CurrentDetectedBy: 1
 --- !u!1 &8328287782086543013
 GameObject:
   m_ObjectHideFlags: 0
