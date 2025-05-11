@@ -366,7 +366,6 @@ public class Enemy : MonoBehaviour, IDamageable
                 // Check if target is blocked by environment
                 if (IsTargetBlocked(hitCollider.transform))
                 {
-                    print($"Target is blocked!");
                     continue; // Skip this target if it's blocked
                 }
                 
