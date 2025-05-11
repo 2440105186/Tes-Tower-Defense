@@ -15,7 +15,7 @@ MonoBehaviour:
   towerName: Rocket Pod
   description: A basic tower that attacks enemies.
   modelPrefab: {fileID: 6350925564685628559, guid: 940beca4c049ee344bf31eb3179395ca, type: 3}
-  maxHealth: 10000
+  maxHealth: 50
   rotationSpeed: 8
   attackRange: 5
   size: {x: 1, y: 1}
