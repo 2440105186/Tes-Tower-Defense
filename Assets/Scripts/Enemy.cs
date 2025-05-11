@@ -311,15 +311,7 @@ public class Enemy : MonoBehaviour, IDamageable
             
                     // Create rotation towards target for the projectile only
                     Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
-            
-                    // Fire projectile with the rotation pointing to the target
-                    GameObject projectileObj = Instantiate(projectilePrefab, firePoint.position, targetRotation);
-                    Projectile projectile = projectileObj.GetComponent<Projectile>();
-            
-                    if (projectile != null)
-                    {
-                        projectile.Initialize(attackDamage);
-                    }
+                    EnemyProjectilePool.Instance.SpawnProjectile(attackDamage, firePoint.position, targetRotation);
             
                     // Reset attack cooldown
                     attackCooldown = 1f / attackRate;
@@ -422,16 +414,7 @@ public class Enemy : MonoBehaviour, IDamageable
 
         // Create rotation towards target for the projectile only
         Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
-
-        // Fire projectile with the rotation pointing to the target
-        // The enemy itself doesn't rotate
-        GameObject projectileObj = Instantiate(projectilePrefab, firePoint.position, targetRotation);
-        Projectile projectile = projectileObj.GetComponent<Projectile>();
-
-        if (projectile != null)
-        {
-            projectile.Initialize(attackDamage);
-        }
+        EnemyProjectilePool.Instance.SpawnProjectile(attackDamage, firePoint.position, targetRotation);
 
         // Reset attack cooldown
         attackCooldown = 1f / attackRate;
