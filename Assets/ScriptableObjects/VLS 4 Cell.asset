@@ -10,12 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dfb8c534cfe6f3c4ab540e6a3dbd9265, type: 3}
-  m_Name: Turret 1x1
+  m_Name: VLS 4 Cell
   m_EditorClassIdentifier: 
-  towerName: Basic Tower 1x1
+  towerName: Vertical Launch System 4 Cell
   description: A basic tower that attacks enemies.
-  modelPrefab: {fileID: 3752027866389465470, guid: 99709686ed50245458cb282b6a37fa4e, type: 3}
-  maxHealth: 100
+  modelPrefab: {fileID: 7512542534098222542, guid: 8bcceaaf14fbd984f9727ba4f28fcd37, type: 3}
+  maxHealth: 10000
   rotationSpeed: 8
   attackRange: 5
   size: {x: 1, y: 1}
+  visionMode: 1

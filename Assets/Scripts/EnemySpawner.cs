@@ -1,38 +1,45 @@
 ﻿using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Extremely basic enemy wave spawner - just spawns enemies at a position with delays
-/// </summary>
 public class EnemySpawner : MonoBehaviour
 {
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private int enemyCount = 10;
     [SerializeField] private float spawnDelay = 1f;
     [SerializeField] private float spawnHeight = 0.5f;
+    [SerializeField] private bool spawnOnStart = true;
 
     private GridManager gridManager;
 
     private void Awake()
     {
-        // Find grid manager for path
-        gridManager = FindFirstObjectByType<GridManager>();
+        gridManager = GridManager.Instance;
     }
 
     private void Start()
     {
-        SpawnWave();
+        if (spawnOnStart)
+        {
+            SpawnWave();
+        }
     }
 
-    /// <summary>
-    /// Start spawning enemies
-    /// </summary>
     public void SpawnWave()
     {
-        StartCoroutine(SpawnEnemies());
+        StartCoroutine(SpawnWaveCoroutine());
     }
 
-    private IEnumerator SpawnEnemies()
+    private IEnumerator SpawnWaveCoroutine()
+    {
+        // Spawn enemies one by one with delay
+        for (int i = 0; i < enemyCount; i++)
+        {
+            SpawnEnemy();
+            yield return new WaitForSeconds(spawnDelay);
+        }
+    }
+
+    public void SpawnEnemy()
     {
         // Get spawn position from grid path if available
         Vector3 position = transform.position;
@@ -59,12 +66,7 @@ public class EnemySpawner : MonoBehaviour
                 );
             }
         }
-
-        // Spawn enemies one by one with delay
-        for (int i = 0; i < enemyCount; i++)
-        {
-            Instantiate(enemyPrefab, position, Quaternion.identity);
-            yield return new WaitForSeconds(spawnDelay);
-        }
+        
+        Instantiate(enemyPrefab, position, Quaternion.identity);
     }
 }

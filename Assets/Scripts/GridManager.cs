@@ -37,9 +37,17 @@ public class GridManager : MonoBehaviour
     public List<Vector2Int> GetPathCells() => pathCellCoordinates;
     
     public bool IsCellPath(Vector2Int coordinates) => pathCellCoordinates.Contains(coordinates);
+    public static GridManager Instance;
     
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        
         // Initialize the cellLookup dictionary if it's empty
         if (cellLookup.Count == 0 && gridCells.Count > 0)
         {
@@ -53,7 +61,7 @@ public class GridManager : MonoBehaviour
         
         foreach (var cell in gridCells)
         {
-            if (cell != null && cell.cellObject != null)
+            if (cell != null)
             {
                 cellLookup[cell.coordinates] = cell;
             }
@@ -102,13 +110,8 @@ public class GridManager : MonoBehaviour
                 text.transform.localPosition = new Vector3(0, 0.6f, 0);
                 
                 // Create and store cell data
-                GridCell cell = new GridCell
-                {
-                    coordinates = coordinates,
-                    cellObject = cellObject,
-                    type = CellType.Default,
-                    isOccupied = false,
-                };
+                GridCell cell = cellObject.AddComponent<GridCell>();
+                cell.coordinates = coordinates;
                 
                 // Check if this was a path cell before and restore it
                 if (existingPaths.Contains(coordinates))
@@ -169,7 +172,7 @@ public class GridManager : MonoBehaviour
             cell.type = type;
             
             // Update the material based on cell type
-            Renderer renderer = cell.cellObject.GetComponent<Renderer>();
+            Renderer renderer = cell.gameObject.GetComponent<Renderer>();
             if (renderer != null)
             {
                 switch (type)
@@ -193,9 +196,9 @@ public class GridManager : MonoBehaviour
     
     public bool TryGetCellObject(Vector2Int coordinates, out GameObject cellObject)
     {
-        if (cellLookup.TryGetValue(coordinates, out GridCell cell) && cell.cellObject != null)
+        if (cellLookup.TryGetValue(coordinates, out GridCell cell) && cell.gameObject != null)
         {
-            cellObject = cell.cellObject;
+            cellObject = cell.gameObject;
             return true;
         }
     

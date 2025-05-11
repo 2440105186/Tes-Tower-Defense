@@ -73,10 +73,17 @@ MonoBehaviour:
   towerData: {fileID: 0}
   rotationSpeed: 8
   targetingMode: 0
+  visionModes: 1
   targetReevaluationInterval: 0.5
   visualTransform: {fileID: 4189770267557146509}
   rotatablePart: {fileID: 0}
   detector: {fileID: 5939048230202982670}
+  EnemyLayerMask:
+    serializedVersion: 2
+    m_Bits: 512
+  lineOfSightLayerMask:
+    serializedVersion: 2
+    m_Bits: 256
 --- !u!1 &1252444307878270962
 GameObject:
   m_ObjectHideFlags: 0

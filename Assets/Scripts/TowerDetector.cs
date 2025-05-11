@@ -10,6 +10,7 @@ public class TowerDetector : MonoBehaviour
     
     public event Action<Enemy> OnEnemyEntered;
     public event Action<Enemy> OnEnemyExited;
+    public float Range => sphereCollider.radius;
     
     private void Awake()
     {

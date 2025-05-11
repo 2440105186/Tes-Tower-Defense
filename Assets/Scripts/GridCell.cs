@@ -7,10 +7,9 @@ public enum CellType
 }
 
 [System.Serializable]
-public class GridCell
+public class GridCell : MonoBehaviour
 {
     public Vector2Int coordinates;
     public CellType type = CellType.Default;
-    public GameObject cellObject;
     public bool isOccupied = false;
 }

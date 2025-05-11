@@ -2,21 +2,22 @@
 using System.Collections;
 using System.Collections.Generic;
 
+public enum TargetingMode
+{
+    First,
+    Last,
+    Closest
+}
+
 public class Tower : DamageableStructure
 {
-    public enum TargetingMode
-    {
-        First,
-        Last,
-        Closest
-    }
-    
     [Header("Tower Type")]
     [SerializeField] private TowerData towerData;
     
     [Header("Tower Settings")]
     [SerializeField] private float rotationSpeed = 8f;
     [SerializeField] private TargetingMode targetingMode = TargetingMode.First;
+    [SerializeField] private VisionModes visionModes = VisionModes.Visual;
     
     [Header("Target Reevaluation")]
     [SerializeField] private float targetReevaluationInterval = 0.5f;
@@ -25,6 +26,8 @@ public class Tower : DamageableStructure
     [SerializeField] private Transform visualTransform;
     [SerializeField] private Transform rotatablePart;
     [SerializeField] private TowerDetector detector;
+    [SerializeField] private  LayerMask EnemyLayerMask;
+    [SerializeField] private  LayerMask lineOfSightLayerMask;
     
     private BoxCollider boxCollider;
     private List<Enemy> enemiesInRange = new List<Enemy>();
@@ -43,7 +46,7 @@ public class Tower : DamageableStructure
     private List<Vector2Int> occupiedCells = new List<Vector2Int>();
     
     public TowerData TowerData => towerData;
-
+    
     protected override void Awake()
     {
         // Initialize the base structure
@@ -61,9 +64,10 @@ public class Tower : DamageableStructure
             coordinate = originCoordinate;
         
             // Set tower properties from data
-            maxHealth = towerDataInput.MaxHealth;
+            currentHealth = towerDataInput.MaxHealth;
             rotationSpeed = towerDataInput.RotationSpeed;
             boxCollider.size = new Vector3(towerDataInput.Size.x, boxCollider.size.y, towerDataInput.Size.y);
+            visionModes = towerDataInput.VisionModes;
         
             // Create the visual representation
             if (visualTransform == null)
@@ -74,6 +78,7 @@ public class Tower : DamageableStructure
             if (towerDataInput.ModelPrefab != null)
             {
                 GameObject modelInstance = Instantiate(towerDataInput.ModelPrefab, visualTransform);
+                modelInstance.layer = gameObject.layer;
             
                 // Try to find a rotatable part if none is assigned
                 if (rotatablePart == null)
@@ -146,8 +151,7 @@ public class Tower : DamageableStructure
     
     private void Update()
     {
-        // Update target rotation if we have a valid target
-        if (currentTarget != null && rotatablePart != null && currentTarget.isActiveAndEnabled)
+        if (currentTarget != null && rotatablePart != null && currentTarget.isActiveAndEnabled && CheckTargetingValidity(currentTarget))
         {
             // Get the current position of the target
             Vector3 targetPosition = currentTarget.transform.position;
@@ -166,6 +170,10 @@ public class Tower : DamageableStructure
             
             // Store the last known position of our target
             lastTargetPosition = targetPosition;
+        }
+        else
+        {
+            isRotating = false;
         }
         
         // Always smoothly rotate towards the current target rotation
@@ -323,22 +331,63 @@ public class Tower : DamageableStructure
         }
     }
     
+    private bool CheckTargetingValidity(Enemy enemy)
+    {
+        if (enemy == null || !enemy.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        // Check vision mode
+        if ((visionModes & enemy.CurrentDetectedBy) == VisionModes.None)
+        {
+            return false;
+        }
+
+        // Calculate origin and direction for LOS check
+        Vector3 origin = transform.position + Vector3.up * 0.5f; // slightly above ground
+        Vector3 targetPos = enemy.transform.position;
+        float distanceToEnemy = detector.Range;
+        Vector3 direction = (targetPos - origin).normalized;
+
+        // Raycast for LOS: if anything in lineOfSightLayerMask is hit before the enemy, there's no LOS
+        Ray ray = new Ray(origin, direction);
+
+        if (
+            Physics.Raycast(ray, out RaycastHit hit, distanceToEnemy, lineOfSightLayerMask | EnemyLayerMask)
+        )
+        {
+            // If we hit the enemy first, LOS is clear
+            if (hit.collider.gameObject == enemy.gameObject)
+            {
+                return true;
+            }
+            // If we hit something else, LOS is blocked
+            return false;
+        }
+        // Nothing hit at all -- unlikely, but no LOS
+        return false;
+    }
+    
     private void SelectEnemyFirst()
     {
         int maxPathIndex = -1;
         Enemy furthestEnemy = null;
-        
+    
         foreach (Enemy enemy in enemiesInRange)
         {
             int pathIndex = enemy.CurrentPathIndex;
-            
+        
             if (pathIndex > maxPathIndex)
             {
-                maxPathIndex = pathIndex;
-                furthestEnemy = enemy;
+                if (CheckTargetingValidity(enemy))
+                {
+                    maxPathIndex = pathIndex;
+                    furthestEnemy = enemy;
+                }
             }
         }
-        
+    
         currentTarget = furthestEnemy;
     }
     
@@ -353,8 +402,11 @@ public class Tower : DamageableStructure
             
             if (pathIndex < minPathIndex)
             {
-                minPathIndex = pathIndex;
-                lastEnemy = enemy;
+                if (CheckTargetingValidity(enemy))
+                {
+                    minPathIndex = pathIndex;
+                    lastEnemy = enemy;
+                }
             }
         }
         
@@ -372,8 +424,11 @@ public class Tower : DamageableStructure
             
             if (distance < minDistance)
             {
-                minDistance = distance;
-                closestEnemy = enemy;
+                if (CheckTargetingValidity(enemy))
+                {
+                    minDistance = distance;
+                    closestEnemy = enemy;
+                }
             }
         }
         
@@ -410,12 +465,12 @@ public class Tower : DamageableStructure
         {
             case TargetingMode.First:
                 // First needs reevaluation as enemies progress along the path
-                needsFrequentReevaluation = false;
+                needsFrequentReevaluation = true;
                 break;
                 
             case TargetingMode.Last:
                 // Last needs reevaluation as enemies progress along the path
-                needsFrequentReevaluation = false;
+                needsFrequentReevaluation = true;
                 break;
                 
             case TargetingMode.Closest:

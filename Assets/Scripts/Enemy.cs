@@ -1,21 +1,25 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class Enemy : MonoBehaviour, IDamageable
 {
     [Header("Enemy Stats")]
     [SerializeField] private float maxHealth = 50f;
     [SerializeField] private float currentHealth;
-    [SerializeField] private float moveSpeed = 2f;
+    [SerializeField] private float baseMoveSpeed = 2f;
     [SerializeField] private float turnSpeed = 5f;
     [SerializeField] private float attackDamage = 10f;
     [SerializeField] private float attackRange = 5f;
     [SerializeField] private float attackRate = 1f;
-    [SerializeField] private LayerMask targetLayers;
+    [SerializeField] private LayerMask towerLayers;
+    [SerializeField] private LayerMask environmentLayers;
+    [SerializeField] private VisionModes baseDetectedBy = VisionModes.Visual;
     
     [Header("Movement")]
     [SerializeField] private float cellArrivalThreshold = 0.1f;
     [SerializeField] private float heightOffset = 0.5f;
+    [SerializeField] private LayerMask gridLayerMask;
     
     [Header("Combat")]
     [SerializeField] private Transform firePoint;
@@ -24,8 +28,10 @@ public class Enemy : MonoBehaviour, IDamageable
     public event System.Action<IDamageable> OnDestroyed;
     public event System.Action<IDamageable, float> OnDamaged;
     public float CurrentHealth => currentHealth;
+    public float CurrentMoveSpeed = 0;
     public float MaxHealth => maxHealth;
     public int CurrentPathIndex { get; private set; } = 0;
+    public VisionModes CurrentDetectedBy;
     
     private GridManager gridManager;
     private List<Vector2Int> pathCells = new List<Vector2Int>();
@@ -64,6 +70,8 @@ public class Enemy : MonoBehaviour, IDamageable
     private void Start()
     {
         InitializePath();
+        CurrentMoveSpeed  = baseMoveSpeed;
+        CurrentDetectedBy = baseDetectedBy;
     }
     
     private void Update()
@@ -243,8 +251,31 @@ public class Enemy : MonoBehaviour, IDamageable
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * turnSpeed);
             
+            // Check for cell modifiers with raycast
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position + Vector3.up, Vector3.down, out hit, 2f, gridLayerMask))
+            {
+                if (hit.collider.TryGetComponent<Mud>(out var mud))
+                {
+                    CurrentMoveSpeed = mud.SlowDownFactor * baseMoveSpeed;
+                }
+                else
+                {
+                    CurrentMoveSpeed = baseMoveSpeed;
+                }
+
+                if (hit.collider.TryGetComponent<TallGrass>(out var tallGrass))
+                {
+                    CurrentDetectedBy = baseDetectedBy & ~tallGrass.HideFrom;
+                }
+                else
+                {
+                    CurrentDetectedBy = baseDetectedBy;
+                }
+            }
+            
             // Move forward
-            transform.position += transform.forward * moveSpeed * Time.deltaTime;
+            transform.position += transform.forward * CurrentMoveSpeed * Time.deltaTime;
         }
     }
     
@@ -320,7 +351,7 @@ public class Enemy : MonoBehaviour, IDamageable
             return;
             
         // Scan for targets
-        Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRange, targetLayers);
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRange, towerLayers);
         
         // Find closest valid target
         float closestDistance = float.MaxValue;
@@ -332,6 +363,12 @@ public class Enemy : MonoBehaviour, IDamageable
             IDamageable target = hitCollider.GetComponent<IDamageable>();
             if (target != null && target != this) // Avoid targeting self
             {
+                // Check if target is blocked by environment
+                if (IsTargetBlocked(hitCollider.transform))
+                {
+                    continue; // Skip this target if it's blocked
+                }
+                
                 float distance = Vector3.Distance(transform.position, hitCollider.transform.position);
                 if (distance < closestDistance)
                 {
@@ -351,6 +388,28 @@ public class Enemy : MonoBehaviour, IDamageable
         {
             Attack();
         }
+    }
+    
+    private bool IsTargetBlocked(Transform target)
+    {
+        if (target == null)
+            return true;
+            
+        Vector3 directionToTarget = target.position - firePoint.position;
+        float distanceToTarget = directionToTarget.magnitude;
+        
+        // Perform raycast to check if there's an environmental blocker between enemy and target
+        RaycastHit hit;
+        if (Physics.Raycast(firePoint.position, directionToTarget.normalized, out hit, distanceToTarget, environmentLayers))
+        {
+            // If we hit something that's not the target, it means there's a blocker in the way
+            if (hit.transform != target)
+            {
+                return true; // Target is blocked
+            }
+        }
+        
+        return false; // Target is not blocked
     }
     
     private void Attack()

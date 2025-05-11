@@ -1,9 +1,6 @@
 ﻿using UnityEngine;
 using System;
 
-/// <summary>
-/// Base class for any structure that can be damaged in the game
-/// </summary>
 public abstract class DamageableStructure : MonoBehaviour, IDamageable
 {
     [Header("Health Settings")]
