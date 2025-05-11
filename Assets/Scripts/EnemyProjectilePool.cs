@@ -20,14 +20,15 @@ public class EnemyProjectilePool : MonoBehaviour
         Instance = this;
     }
 
-    public Projectile Get() {
+    private Projectile Get() {
         if (pool.Count > 0) return pool.Dequeue();
         var go = Instantiate(prefab);
         go.TryGetComponent<Projectile>(out var p);
         p.OnDestroy += Return;
         return p;
     }
-    void Return(Projectile p) { pool.Enqueue(p); }
+
+    private void Return(Projectile p) { pool.Enqueue(p); }
 
     public void SpawnProjectile(float damage, Vector3 position, Quaternion rotation)
     {
