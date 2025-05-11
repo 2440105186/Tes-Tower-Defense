@@ -353,7 +353,7 @@ public class Enemy : MonoBehaviour, IDamageable
         foreach (var hitCollider in hitColliders)
         {
             IDamageable target = hitCollider.GetComponent<IDamageable>();
-            if (target != null && target != this) // Avoid targeting self
+            if (target != null && target is not Enemy) // Avoid targeting self
             {
                 // Check if target is blocked by environment
                 if (IsTargetBlocked(hitCollider.transform))
