@@ -12,7 +12,8 @@ public class Enemy : MonoBehaviour, IDamageable
     [SerializeField] private float attackDamage = 10f;
     [SerializeField] private float attackRange = 5f;
     [SerializeField] private float attackRate = 1f;
-    [SerializeField] private LayerMask targetLayers;
+    [SerializeField] private LayerMask towerLayers;
+    [SerializeField] private LayerMask environmentLayers;
     [SerializeField] private VisionModes baseDetectedBy = VisionModes.Visual;
     
     [Header("Movement")]
@@ -350,7 +351,7 @@ public class Enemy : MonoBehaviour, IDamageable
             return;
             
         // Scan for targets
-        Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRange, targetLayers);
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRange, towerLayers);
         
         // Find closest valid target
         float closestDistance = float.MaxValue;
@@ -362,6 +363,13 @@ public class Enemy : MonoBehaviour, IDamageable
             IDamageable target = hitCollider.GetComponent<IDamageable>();
             if (target != null && target != this) // Avoid targeting self
             {
+                // Check if target is blocked by environment
+                if (IsTargetBlocked(hitCollider.transform))
+                {
+                    print($"Target is blocked!");
+                    continue; // Skip this target if it's blocked
+                }
+                
                 float distance = Vector3.Distance(transform.position, hitCollider.transform.position);
                 if (distance < closestDistance)
                 {
@@ -381,6 +389,28 @@ public class Enemy : MonoBehaviour, IDamageable
         {
             Attack();
         }
+    }
+    
+    private bool IsTargetBlocked(Transform target)
+    {
+        if (target == null)
+            return true;
+            
+        Vector3 directionToTarget = target.position - firePoint.position;
+        float distanceToTarget = directionToTarget.magnitude;
+        
+        // Perform raycast to check if there's an environmental blocker between enemy and target
+        RaycastHit hit;
+        if (Physics.Raycast(firePoint.position, directionToTarget.normalized, out hit, distanceToTarget, environmentLayers))
+        {
+            // If we hit something that's not the target, it means there's a blocker in the way
+            if (hit.transform != target)
+            {
+                return true; // Target is blocked
+            }
+        }
+        
+        return false; // Target is not blocked
     }
     
     private void Attack()

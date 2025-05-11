@@ -221,9 +221,12 @@ MonoBehaviour:
   attackDamage: 10
   attackRange: 5
   attackRate: 1
-  targetLayers:
+  towerLayers:
     serializedVersion: 2
     m_Bits: 128
+  environmentLayers:
+    serializedVersion: 2
+    m_Bits: 256
   baseDetectedBy: 1
   cellArrivalThreshold: 0.1
   heightOffset: 0.5
