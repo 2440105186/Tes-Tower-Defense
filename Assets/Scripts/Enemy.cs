@@ -1,54 +1,54 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
-/// <summary>
-/// Represents an enemy that follows a path and attacks structures
-/// </summary>
 public class Enemy : MonoBehaviour, IDamageable
 {
     [Header("Enemy Stats")]
     [SerializeField] private float maxHealth = 50f;
     [SerializeField] private float currentHealth;
-    [SerializeField] private float moveSpeed = 2f;
+    [SerializeField] private float baseMoveSpeed = 2f;
     [SerializeField] private float turnSpeed = 5f;
     [SerializeField] private float attackDamage = 10f;
     [SerializeField] private float attackRange = 5f;
     [SerializeField] private float attackRate = 1f;
-    [SerializeField] private LayerMask targetLayers;
+    [SerializeField] private LayerMask towerLayers;
+    [SerializeField] private LayerMask environmentLayers;
+    [SerializeField] private VisionModes baseDetectedBy = VisionModes.Visual;
     
     [Header("Movement")]
     [SerializeField] private float cellArrivalThreshold = 0.1f;
     [SerializeField] private float heightOffset = 0.5f;
+    [SerializeField] private LayerMask gridLayerMask;
     
     [Header("Combat")]
     [SerializeField] private Transform firePoint;
     [SerializeField] private GameObject projectilePrefab;
     
-    // IDamageable implementation
     public event System.Action<IDamageable> OnDestroyed;
     public event System.Action<IDamageable, float> OnDamaged;
     public float CurrentHealth => currentHealth;
+    public float CurrentMoveSpeed = 0;
     public float MaxHealth => maxHealth;
+    public int CurrentPathIndex { get; private set; } = 0;
+    public VisionModes CurrentDetectedBy;
     
-    // Path following
     private GridManager gridManager;
     private List<Vector2Int> pathCells = new List<Vector2Int>();
-    private int currentPathIndex = 0;
     private Vector3 currentTargetPosition;
     private bool hasReachedDestination = false;
     
-    // Gate attack behavior
     private bool isAttackingGate = false;
     private bool isGateDestroyed = false;
     private int gateTargetPathIndex = -1;
     
-    // Combat
     private float attackCooldown = 0f;
     private IDamageable currentTarget;
     private Transform currentTargetTransform;
     
     private void Awake()
     {
+        GetComponent<Rigidbody>().isKinematic = true;
         currentHealth = maxHealth;
         gridManager = FindFirstObjectByType<GridManager>();
         if (gridManager == null)
@@ -59,19 +59,19 @@ public class Enemy : MonoBehaviour, IDamageable
     
     private void OnEnable()
     {
-        // Subscribe to gate destroyed event
         Gate.OnGateDestroyed += OnGateDestroyed;
     }
     
     private void OnDisable()
     {
-        // Unsubscribe from gate destroyed event
         Gate.OnGateDestroyed -= OnGateDestroyed;
     }
     
     private void Start()
     {
         InitializePath();
+        CurrentMoveSpeed  = baseMoveSpeed;
+        CurrentDetectedBy = baseDetectedBy;
     }
     
     private void Update()
@@ -98,9 +98,6 @@ public class Enemy : MonoBehaviour, IDamageable
         }
     }
     
-    /// <summary>
-    /// Initialize the enemy's path using the grid manager's path cells
-    /// </summary>
     private void InitializePath()
     {
         if (gridManager == null) return;
@@ -114,7 +111,7 @@ public class Enemy : MonoBehaviour, IDamageable
             FindGatePosition();
             
             // Start at the first path cell
-            currentPathIndex = 0;
+            CurrentPathIndex = 0;
             UpdateTargetPosition();
         }
         else
@@ -124,9 +121,6 @@ public class Enemy : MonoBehaviour, IDamageable
         }
     }
     
-    /// <summary>
-    /// Find the position of the gate (second to last cell)
-    /// </summary>
     private void FindGatePosition()
     {
         if (pathCells.Count < 2) return;
@@ -154,18 +148,15 @@ public class Enemy : MonoBehaviour, IDamageable
         }
     }
     
-    /// <summary>
-    /// Update the target position based on the current path index
-    /// </summary>
     private void UpdateTargetPosition()
     {
-        if (currentPathIndex >= pathCells.Count)
+        if (CurrentPathIndex >= pathCells.Count)
         {
             hasReachedDestination = true;
             return;
         }
 
-        Vector2Int targetCell = pathCells[currentPathIndex];
+        Vector2Int targetCell = pathCells[CurrentPathIndex];
 
         // Special case: if we hit a cell with coordinates (-1,-1), this is the end point
         if (targetCell.x == -1 && targetCell.y == -1)
@@ -197,15 +188,12 @@ public class Enemy : MonoBehaviour, IDamageable
         }
 
         // Check if we're at the gate target position
-        if (currentPathIndex == gateTargetPathIndex && !isGateDestroyed)
+        if (CurrentPathIndex == gateTargetPathIndex && !isGateDestroyed)
         {
             isAttackingGate = true;
         }
     }
     
-    /// <summary>
-    /// Move along the path to the current target position
-    /// </summary>
     private void MoveAlongPath()
     {
         // Skip movement if attacking gate
@@ -220,9 +208,9 @@ public class Enemy : MonoBehaviour, IDamageable
         if (distanceToTarget <= cellArrivalThreshold)
         {
             // Move to next point in path
-            currentPathIndex++;
+            CurrentPathIndex++;
             
-            if (currentPathIndex >= pathCells.Count)
+            if (CurrentPathIndex >= pathCells.Count)
             {
                 hasReachedDestination = true;
                 OnReachedDestination();
@@ -239,9 +227,9 @@ public class Enemy : MonoBehaviour, IDamageable
         {
             // Force completion if very close
             transform.position = new Vector3(currentTargetPosition.x, transform.position.y, currentTargetPosition.z);
-            currentPathIndex++;
+            CurrentPathIndex++;
             
-            if (currentPathIndex >= pathCells.Count)
+            if (CurrentPathIndex >= pathCells.Count)
             {
                 hasReachedDestination = true;
                 OnReachedDestination();
@@ -263,14 +251,34 @@ public class Enemy : MonoBehaviour, IDamageable
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * turnSpeed);
             
+            // Check for cell modifiers with raycast
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position + Vector3.up, Vector3.down, out hit, 2f, gridLayerMask))
+            {
+                if (hit.collider.TryGetComponent<Mud>(out var mud))
+                {
+                    CurrentMoveSpeed = mud.SlowDownFactor * baseMoveSpeed;
+                }
+                else
+                {
+                    CurrentMoveSpeed = baseMoveSpeed;
+                }
+
+                if (hit.collider.TryGetComponent<TallGrass>(out var tallGrass))
+                {
+                    CurrentDetectedBy = baseDetectedBy & ~tallGrass.HideFrom;
+                }
+                else
+                {
+                    CurrentDetectedBy = baseDetectedBy;
+                }
+            }
+            
             // Move forward
-            transform.position += transform.forward * moveSpeed * Time.deltaTime;
+            transform.position += transform.forward * CurrentMoveSpeed * Time.deltaTime;
         }
     }
     
-    /// <summary>
-    /// Scan specifically for the gate
-    /// </summary>
     private void ScanForGate()
     {
         // If gate already destroyed, continue path
@@ -326,9 +334,6 @@ public class Enemy : MonoBehaviour, IDamageable
         }
     }
     
-    /// <summary>
-    /// Handler for when the gate is destroyed
-    /// </summary>
     private void OnGateDestroyed()
     {
         isGateDestroyed = true;
@@ -339,9 +344,6 @@ public class Enemy : MonoBehaviour, IDamageable
         Debug.Log("Enemy detected gate destruction, continuing to final destination");
     }
     
-    /// <summary>
-    /// Scan for potential targets within attack range
-    /// </summary>
     private void ScanForTargets()
     {
         // Skip if on cooldown or if attacking gate
@@ -349,7 +351,7 @@ public class Enemy : MonoBehaviour, IDamageable
             return;
             
         // Scan for targets
-        Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRange, targetLayers);
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRange, towerLayers);
         
         // Find closest valid target
         float closestDistance = float.MaxValue;
@@ -361,6 +363,12 @@ public class Enemy : MonoBehaviour, IDamageable
             IDamageable target = hitCollider.GetComponent<IDamageable>();
             if (target != null && target != this) // Avoid targeting self
             {
+                // Check if target is blocked by environment
+                if (IsTargetBlocked(hitCollider.transform))
+                {
+                    continue; // Skip this target if it's blocked
+                }
+                
                 float distance = Vector3.Distance(transform.position, hitCollider.transform.position);
                 if (distance < closestDistance)
                 {
@@ -382,9 +390,28 @@ public class Enemy : MonoBehaviour, IDamageable
         }
     }
     
-    /// <summary>
-    /// Attack the current target
-    /// </summary>
+    private bool IsTargetBlocked(Transform target)
+    {
+        if (target == null)
+            return true;
+            
+        Vector3 directionToTarget = target.position - firePoint.position;
+        float distanceToTarget = directionToTarget.magnitude;
+        
+        // Perform raycast to check if there's an environmental blocker between enemy and target
+        RaycastHit hit;
+        if (Physics.Raycast(firePoint.position, directionToTarget.normalized, out hit, distanceToTarget, environmentLayers))
+        {
+            // If we hit something that's not the target, it means there's a blocker in the way
+            if (hit.transform != target)
+            {
+                return true; // Target is blocked
+            }
+        }
+        
+        return false; // Target is not blocked
+    }
+    
     private void Attack()
     {
         if (currentTargetTransform == null || firePoint == null)
@@ -410,18 +437,12 @@ public class Enemy : MonoBehaviour, IDamageable
         attackCooldown = 1f / attackRate;
     }
     
-    /// <summary>
-    /// Handle reaching the end of the path
-    /// </summary>
     private void OnReachedDestination()
     {
         // Destroy this enemy
         Die();
     }
     
-    /// <summary>
-    /// Take damage from player attacks
-    /// </summary>
     public float TakeDamage(float amount)
     {
         if (amount <= 0)
@@ -442,9 +463,6 @@ public class Enemy : MonoBehaviour, IDamageable
         return actualDamage;
     }
     
-    /// <summary>
-    /// Handle enemy death
-    /// </summary>
     private void Die()
     {
         // Trigger destroyed event
@@ -464,9 +482,6 @@ public class Enemy : MonoBehaviour, IDamageable
         Destroy(gameObject, 2f);
     }
     
-    /// <summary>
-    /// Draw gizmos for visual debugging
-    /// </summary>
     private void OnDrawGizmosSelected()
     {
         // Draw attack range
@@ -546,9 +561,9 @@ public class Enemy : MonoBehaviour, IDamageable
             }
             
             // Highlight current target position
-            if (!hasReachedDestination && currentPathIndex < pathCells.Count)
+            if (!hasReachedDestination && CurrentPathIndex < pathCells.Count)
             {
-                Vector2Int targetCell = pathCells[currentPathIndex];
+                Vector2Int targetCell = pathCells[CurrentPathIndex];
                 // Skip end marker
                 if (!(targetCell.x == -1 && targetCell.y == -1))
                 {

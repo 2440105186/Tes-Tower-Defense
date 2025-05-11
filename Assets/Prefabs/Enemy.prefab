@@ -127,6 +127,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8485620650855074622}
   - component: {fileID: 840461492497857446}
+  - component: {fileID: 3504023667206119264}
   - component: {fileID: 7907360203330937716}
   m_Layer: 8
   m_Name: Enemy
@@ -174,6 +175,33 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1.5, z: 2.25}
   m_Center: {x: 0, y: 0.2, z: 0.13}
+--- !u!54 &3504023667206119264
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4483919610051224757}
+  serializedVersion: 4
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 4
+  m_CollisionDetection: 0
 --- !u!114 &7907360203330937716
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -188,18 +216,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 50
   currentHealth: 0
-  moveSpeed: 2
+  baseMoveSpeed: 2
   turnSpeed: 10
   attackDamage: 10
   attackRange: 5
   attackRate: 1
-  targetLayers:
+  towerLayers:
     serializedVersion: 2
     m_Bits: 128
+  environmentLayers:
+    serializedVersion: 2
+    m_Bits: 256
+  baseDetectedBy: 1
   cellArrivalThreshold: 0.1
   heightOffset: 0.5
+  gridLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
   firePoint: {fileID: 3400025861045195132}
   projectilePrefab: {fileID: 4504101681686529513, guid: a3ece60e32e133441b4f0bf1324aa1d2, type: 3}
+  CurrentMoveSpeed: 0
+  CurrentDetectedBy: 1
 --- !u!1 &8328287782086543013
 GameObject:
   m_ObjectHideFlags: 0

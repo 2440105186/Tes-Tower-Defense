@@ -1,9 +1,6 @@
 ﻿using UnityEngine;
 using System;
 
-/// <summary>
-/// Base class for any structure that can be damaged in the game
-/// </summary>
 public abstract class DamageableStructure : MonoBehaviour, IDamageable
 {
     [Header("Health Settings")]
@@ -27,11 +24,6 @@ public abstract class DamageableStructure : MonoBehaviour, IDamageable
         currentHealth = maxHealth;
     }
     
-    /// <summary>
-    /// Apply damage to the structure
-    /// </summary>
-    /// <param name="amount">Amount of damage to apply</param>
-    /// <returns>Actual damage applied</returns>
     public virtual float TakeDamage(float amount)
     {
         if (amount <= 0)
@@ -52,9 +44,6 @@ public abstract class DamageableStructure : MonoBehaviour, IDamageable
         return actualDamage;
     }
     
-    /// <summary>
-    /// Handle structure destruction
-    /// </summary>
     protected virtual void DestroyStructure()
     {
         // Trigger destroyed event

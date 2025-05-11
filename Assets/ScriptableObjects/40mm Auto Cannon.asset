@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfb8c534cfe6f3c4ab540e6a3dbd9265, type: 3}
+  m_Name: 40mm Auto Cannon
+  m_EditorClassIdentifier: 
+  towerName: 40mm Auto Cannon
+  description: A basic tower that attacks enemies.
+  modelPrefab: {fileID: 272643041052378337, guid: 1616db4ba64495b4792968a4e80c94b0, type: 3}
+  maxHealth: 10000
+  rotationSpeed: 8
+  attackRange: 5
+  size: {x: 1, y: 1}
+  visionMode: 1
