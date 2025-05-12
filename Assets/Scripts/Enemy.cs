@@ -28,10 +28,12 @@ public class Enemy : MonoBehaviour, IDamageable
     public event System.Action<IDamageable> OnDestroyed;
     public event System.Action<IDamageable, float> OnDamaged;
     public float CurrentHealth => currentHealth;
-    public float CurrentMoveSpeed = 0;
+    public float CurrentMoveSpeed;
+    public float BaseMoveSpeed => baseMoveSpeed;
+    public VisionModes CurrentDetectedBy;
+    public VisionModes BaseDetectedBy => baseDetectedBy;
     public float MaxHealth => maxHealth;
     public int CurrentPathIndex { get; private set; } = 0;
-    public VisionModes CurrentDetectedBy;
     
     private GridManager gridManager;
     private List<Vector2Int> pathCells = new List<Vector2Int>();
@@ -55,6 +57,26 @@ public class Enemy : MonoBehaviour, IDamageable
         {
             Debug.LogError("No GridManager found in the scene! Enemy will not be able to navigate.");
         }
+    }
+
+    public void SetMoveSpeed(float speedModifier)
+    {
+        CurrentMoveSpeed *= speedModifier;
+    }
+
+    public void ResetMoveSpeed()
+    {
+        CurrentMoveSpeed = baseMoveSpeed;
+    }
+    
+    public void SetDetectedBy(VisionModes mode)
+    {
+        CurrentDetectedBy = baseDetectedBy & ~mode;
+    }
+
+    public void ResetDetectedBy()
+    {
+        CurrentDetectedBy = baseDetectedBy;
     }
     
     private void OnEnable()
@@ -250,29 +272,6 @@ public class Enemy : MonoBehaviour, IDamageable
             // Rotate towards movement direction
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * turnSpeed);
-            
-            // Check for cell modifiers with raycast
-            RaycastHit hit;
-            if (Physics.Raycast(transform.position + Vector3.up, Vector3.down, out hit, 2f, gridLayerMask))
-            {
-                if (hit.collider.TryGetComponent<Mud>(out var mud))
-                {
-                    CurrentMoveSpeed = mud.SlowDownFactor * baseMoveSpeed;
-                }
-                else
-                {
-                    CurrentMoveSpeed = baseMoveSpeed;
-                }
-
-                if (hit.collider.TryGetComponent<TallGrass>(out var tallGrass))
-                {
-                    CurrentDetectedBy = baseDetectedBy & ~tallGrass.HideFrom;
-                }
-                else
-                {
-                    CurrentDetectedBy = baseDetectedBy;
-                }
-            }
             
             // Move forward
             transform.position += transform.forward * CurrentMoveSpeed * Time.deltaTime;

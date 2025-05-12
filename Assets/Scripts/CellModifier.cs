@@ -9,12 +9,25 @@ public class CellModifier : MonoBehaviour
 
     protected virtual void Awake()
     {
-        GridCell = GetComponent<GridCell>();
-        GridCell.isOccupied = true;
+        if (TryGetComponent<GridCell>(out var gc))
+        {
+            GridCell = gc;
+            GridCell.isOccupied = true;
+        }
         
         if (effectMaterial != null)
         {
             GetComponent<Renderer>().material = effectMaterial;
         }
+    }
+
+    public virtual void ApplyModifier(Enemy enemy)
+    {
+        
+    }
+
+    public virtual void RemoveModifier(Enemy enemy)
+    {
+        
     }
 }
