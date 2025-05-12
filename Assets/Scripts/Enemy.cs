@@ -5,7 +5,6 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody), typeof(Collider))]
 public class Enemy : MonoBehaviour, IDamageable
 {
-    #region Stats & Detection
     [Header("Enemy Stats")]
     [SerializeField] private float maxHealth = 50f;
     [SerializeField] private float baseMoveSpeed = 2f;
@@ -21,68 +20,61 @@ public class Enemy : MonoBehaviour, IDamageable
     public VisionModes CurrentDetectedBy { get; private set; }
     public VisionModes BaseDetectedBy => baseDetectedBy;
 
+    public int CurrentPathIndex => pathIndex;
+
     public event Action<IDamageable> OnDestroyed;
     public event Action<IDamageable, float> OnDamaged;
-    #endregion
 
-    #region Navigation
     [Header("Pathfinding")]
     [SerializeField] private float cellArrivalThreshold = 0.1f;
     [SerializeField] private float heightOffset = 0.5f;
-    [SerializeField] private LayerMask gridLayerMask;
 
-    private GridManager gridManager;
-    private List<Vector2Int> pathCells = new();
-    public int CurrentPathIndex { get; private set; } = 0;
-    private Vector3 currentTargetPosition;
-    private bool hasReachedDestination = false;
+    protected GridManager gridManager;
+    protected List<Vector2Int> pathCells = new();
+    protected int pathIndex;
+    protected Vector3 targetPosition;
+    protected bool hasReachedDestination;
 
-    private bool isAttackingGate = false;
-    private bool isGateDestroyed = false;
-    private int gateTargetPathIndex = -1;
-    #endregion
+    protected bool isAttackingGate;
+    protected bool gateDestroyed;
+    protected int gateTargetIndex;
 
-    #region Combat
     [Header("Combat")]
-    [SerializeField] private float attackDamage = 10f;
-    [SerializeField] private float attackRange = 5f;
-    [SerializeField] private float attackRate = 1f;
-    [SerializeField] private LayerMask towerLayers;
-    [SerializeField] private LayerMask environmentLayers;
-    [SerializeField] private Transform firePoint;
+    [SerializeField] protected float attackDamage = 10f;
+    [SerializeField] protected float attackRange = 5f;
+    [SerializeField] protected float attackRate = 1f;
+    [SerializeField] protected LayerMask towerLayers;
+    [SerializeField] protected LayerMask environmentLayers;
+    [SerializeField] protected Transform firePoint;
 
-    private float attackCooldown;
-    private IDamageable currentTarget;
-    private Transform currentTargetTransform;
-    #endregion
+    protected float attackCooldown;
 
-    #region Unity Lifecycle
-    private void Awake()
+    protected virtual void Awake()
     {
-        var rb = GetComponent<Rigidbody>();
-        rb.isKinematic = true;
-
         CurrentHealth = maxHealth;
         CurrentMoveSpeed = baseMoveSpeed;
         CurrentDetectedBy = baseDetectedBy;
 
-        gridManager = GridManager.Instance;
-        if (gridManager == null) Debug.LogError("No GridManager found; navigation will fail!");
+        Rigidbody rb = GetComponent<Rigidbody>();
+        rb.isKinematic = true;
+
+        gridManager = FindFirstObjectByType<GridManager>();
+        if (gridManager == null)
+            Debug.LogError("No GridManager found; navigation will fail!");
     }
 
-    private void OnEnable() => Gate.OnGateDestroyed += HandleGateDestroyed;
-    private void OnDisable() => Gate.OnGateDestroyed -= HandleGateDestroyed;
-
-    private void Start()
+    protected virtual void Start()
     {
+        pathIndex = 0;
         InitializePath();
     }
 
-    private void Update()
+    protected virtual void Update()
     {
-        if (attackCooldown > 0f) attackCooldown -= Time.deltaTime;
+        if (attackCooldown > 0f)
+            attackCooldown -= Time.deltaTime;
 
-        if (isAttackingGate && !isGateDestroyed)
+        if (isAttackingGate && !gateDestroyed)
         {
             HandleGateAttack();
             return;
@@ -90,201 +82,156 @@ public class Enemy : MonoBehaviour, IDamageable
 
         if (!hasReachedDestination)
         {
-            ScanForTargets();
+            TryAttack();
             MoveAlongPath();
         }
     }
-    #endregion
 
-    #region Movement & Path
-    private void InitializePath()
+    protected void InitializePath()
     {
-        if (gridManager == null) return;
-
         pathCells = gridManager.GetPathCells();
-        if (pathCells.Count == 0)
-        {
-            Debug.LogWarning("Enemy has no path!");
-            hasReachedDestination = true;
-            return;
-        }
-
-        // find gate index
         for (int i = 0; i < pathCells.Count; i++)
+        {
             if (pathCells[i] == new Vector2Int(-1, -1))
-                gateTargetPathIndex = Mathf.Max(0, i - 1);
-
-        CurrentPathIndex = 0;
+                gateTargetIndex = Mathf.Max(0, i - 1);
+        }
         UpdateTargetPosition();
     }
 
-    private void UpdateTargetPosition()
+    protected void UpdateTargetPosition()
     {
-        if (CurrentPathIndex >= pathCells.Count)
+        if (pathIndex >= pathCells.Count)
         {
-            ReachDestination();
+            hasReachedDestination = true;
+            Die();
             return;
         }
 
-        var cell = pathCells[CurrentPathIndex];
+        Vector2Int cell = pathCells[pathIndex];
         if (cell == new Vector2Int(-1, -1))
         {
-            ReachDestination();
+            hasReachedDestination = true;
+            Die();
             return;
         }
 
         if (gridManager.TryGetCellObject(cell, out var cellObj))
-            currentTargetPosition = new Vector3(
-                cellObj.transform.position.x,
-                heightOffset,
-                cellObj.transform.position.z
-            );
+            targetPosition = new Vector3(cellObj.transform.position.x, heightOffset, cellObj.transform.position.z);
         else
-            currentTargetPosition = new Vector3(
-                cell.x * gridManager.CellSize,
-                heightOffset,
-                cell.y * gridManager.CellSize
-            );
+            targetPosition = new Vector3(cell.x * gridManager.CellSize, heightOffset, cell.y * gridManager.CellSize);
 
-        if (CurrentPathIndex == gateTargetPathIndex && !isGateDestroyed)
+        if (pathIndex == gateTargetIndex && !gateDestroyed)
             isAttackingGate = true;
     }
 
-    private void MoveAlongPath()
+    protected virtual void MoveAlongPath()
     {
-        if (isAttackingGate && !isGateDestroyed) return;
+        Vector3 dir = targetPosition - transform.position;
+        dir.y = 0f;
 
-        Vector3 toTarget = currentTargetPosition - transform.position;
-        toTarget.y = 0f;
-
-        if (toTarget.sqrMagnitude <= cellArrivalThreshold * cellArrivalThreshold)
+        float thresholdSq = cellArrivalThreshold * cellArrivalThreshold;
+        if (dir.sqrMagnitude <= thresholdSq)
         {
-            CurrentPathIndex++;
+            pathIndex++;
             UpdateTargetPosition();
             return;
         }
 
-        RotateTowards(toTarget);
-        transform.position += transform.forward * (CurrentMoveSpeed * Time.deltaTime);
+        Quaternion rot = Quaternion.LookRotation(dir.normalized);
+        transform.rotation = Quaternion.Slerp(transform.rotation, rot, Time.deltaTime * turnSpeed);
+        transform.position += transform.forward * CurrentMoveSpeed * Time.deltaTime;
     }
 
-    private void RotateTowards(Vector3 direction)
+    protected virtual void TryAttack()
     {
-        if (direction.sqrMagnitude < 0.001f) return;
-        Quaternion targetRot = Quaternion.LookRotation(direction.normalized);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * turnSpeed);
-    }
-
-    private void ReachDestination()
-    {
-        hasReachedDestination = true;
-        Die();
-    }
-    #endregion
-
-    #region Combat Routines
-    private void ScanForTargets()
-    {
-        if (attackCooldown > 0f || isAttackingGate) return;
+        if (attackCooldown > 0f)
+            return;
 
         Collider[] hits = Physics.OverlapSphere(transform.position, attackRange, towerLayers);
-        float minDist = float.MaxValue;
-        IDamageable best = null;
-        Transform bestT = null;
+        Transform closestTower = null;
+        float closestDistSq = float.MaxValue;
 
         foreach (var col in hits)
         {
             if (col.TryGetComponent<IDamageable>(out var dmg) && !ReferenceEquals(dmg, this))
             {
-                // line-of-sight?
-                Vector3 dir = col.transform.position - firePoint.position;
-                if (Physics.Raycast(firePoint.position, dir.normalized, out RaycastHit hit, attackRange, environmentLayers)
+                Vector3 toTower = col.transform.position - firePoint.position;
+                if (Physics.Raycast(firePoint.position, toTower.normalized, out RaycastHit hit, attackRange, environmentLayers)
                     && hit.transform != col.transform)
                     continue;
 
-                float d = dir.sqrMagnitude;
-                if (d < minDist)
+                float distSq = toTower.sqrMagnitude;
+                if (distSq < closestDistSq)
                 {
-                    minDist = d;
-                    best = dmg;
-                    bestT = col.transform;
+                    closestDistSq = distSq;
+                    closestTower = col.transform;
                 }
             }
         }
 
-        currentTarget = best;
-        currentTargetTransform = bestT;
-        if (currentTarget != null && attackCooldown <= 0f) FireAt(currentTargetTransform);
+        if (closestTower != null)
+        {
+            Quaternion rot = Quaternion.LookRotation(closestTower.position - firePoint.position);
+            EnemyProjectilePool.Instance.SpawnProjectile(attackDamage, firePoint.position, rot);
+            attackCooldown = 1f / attackRate;
+        }
     }
 
-    private void FireAt(Transform target)
+    protected virtual void HandleGateAttack()
     {
-        Quaternion rot = Quaternion.LookRotation(target.position - firePoint.position);
-        EnemyProjectilePool.Instance.SpawnProjectile(attackDamage, firePoint.position, rot);
-        attackCooldown = 1f / attackRate;
-    }
+        if (attackCooldown > 0f)
+            return;
 
-    private void HandleGateAttack()
-    {
-        if (attackCooldown > 0f) return;
-
-        var gate = FindFirstObjectByType<Gate>();
+        Gate gate = FindFirstObjectByType<Gate>();
         if (gate == null)
         {
-            isGateDestroyed = true;
+            gateDestroyed = true;
             isAttackingGate = false;
             return;
         }
 
-        currentTarget = gate;
-        currentTargetTransform = gate.transform;
-        Quaternion rot = Quaternion.LookRotation(gate.transform.position - firePoint.position);
-        EnemyProjectilePool.Instance.SpawnProjectile(attackDamage, firePoint.position, rot);
-        attackCooldown = 1f / attackRate;
+        Vector3 toGate = gate.transform.position - firePoint.position;
+        if (!Physics.Raycast(firePoint.position, toGate.normalized, out RaycastHit hit, attackRange, environmentLayers)
+            || hit.transform == gate.transform)
+        {
+            Quaternion rot = Quaternion.LookRotation(toGate);
+            EnemyProjectilePool.Instance.SpawnProjectile(attackDamage, firePoint.position, rot);
+            attackCooldown = 1f / attackRate;
+        }
     }
 
-    private void HandleGateDestroyed()
-    {
-        isGateDestroyed = true;
-        isAttackingGate = false;
-    }
-    #endregion
+    public void SetMoveSpeed(float multiplier) => CurrentMoveSpeed = baseMoveSpeed * multiplier;
 
-    #region IDamageable
+    public void ResetMoveSpeed() => CurrentMoveSpeed = baseMoveSpeed;
+
+    public void SetDetectedBy(VisionModes mode) => CurrentDetectedBy = baseDetectedBy & ~mode;
+
+    public void ResetDetectedBy() => CurrentDetectedBy = baseDetectedBy;
+
     public float TakeDamage(float amount)
     {
-        if (amount <= 0f) return 0f;
         float dealt = Mathf.Min(CurrentHealth, amount);
         CurrentHealth -= dealt;
         OnDamaged?.Invoke(this, dealt);
-
         if (CurrentHealth <= 0f) Die();
-
         return dealt;
     }
 
     protected virtual void Die()
     {
         OnDestroyed?.Invoke(this);
-        enabled = false;
         GetComponent<Collider>().enabled = false;
+        enabled = false;
         Destroy(gameObject);
     }
-    #endregion
-
-    #region Modifiers API
-    public void SetMoveSpeed(float multiplier) => CurrentMoveSpeed = baseMoveSpeed * multiplier;
-    public void ResetMoveSpeed() => CurrentMoveSpeed = baseMoveSpeed;
-    public void SetDetectedBy(VisionModes mode) => CurrentDetectedBy = baseDetectedBy & ~mode;
-    public void ResetDetectedBy() => CurrentDetectedBy = baseDetectedBy;
-    #endregion
-
-    #region Gizmos
+    
     private void OnDrawGizmosSelected()
     {
+        // Draw attack range
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, attackRange);
 
+        // Draw path if available
         if (pathCells != null && gridManager != null)
         {
             Gizmos.color = Color.green;
@@ -292,18 +239,18 @@ public class Enemy : MonoBehaviour, IDamageable
             {
                 var a = pathCells[i];
                 var b = pathCells[i + 1];
-                if (a == new Vector2Int(-1, -1) || b == new Vector2Int(-1, -1)) continue;
+                if (a == new Vector2Int(-1, -1) || b == new Vector2Int(-1, -1))
+                    continue;
 
                 Vector3 pa = gridManager.TryGetCellObject(a, out var ao)
-                    ? ao.transform.position
-                    : new Vector3(a.x, heightOffset, a.y) * gridManager.CellSize;
+                    ? ao.transform.position + Vector3.up * heightOffset
+                    : new Vector3(a.x * gridManager.CellSize, heightOffset, a.y * gridManager.CellSize);
                 Vector3 pb = gridManager.TryGetCellObject(b, out var bo)
-                    ? bo.transform.position
-                    : new Vector3(b.x, heightOffset, b.y) * gridManager.CellSize;
+                    ? bo.transform.position + Vector3.up * heightOffset
+                    : new Vector3(b.x * gridManager.CellSize, heightOffset, b.y * gridManager.CellSize);
 
                 Gizmos.DrawLine(pa, pb);
             }
         }
     }
-    #endregion
 }

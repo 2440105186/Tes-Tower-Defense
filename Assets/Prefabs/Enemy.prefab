@@ -128,7 +128,7 @@ GameObject:
   - component: {fileID: 8485620650855074622}
   - component: {fileID: 840461492497857446}
   - component: {fileID: 3504023667206119264}
-  - component: {fileID: 7907360203330937716}
+  - component: {fileID: 7477925285221375619}
   m_Layer: 8
   m_Name: Enemy
   m_TagString: Untagged
@@ -202,7 +202,7 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 4
   m_CollisionDetection: 0
---- !u!114 &7907360203330937716
+--- !u!114 &7477925285221375619
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -211,7 +211,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 4483919610051224757}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f10a0999e5307d74e9e6f57af6dc06e0, type: 3}
+  m_Script: {fileID: 11500000, guid: 2a2a1b28cd35402b8c17286b3b19928a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 50
@@ -220,9 +220,6 @@ MonoBehaviour:
   baseDetectedBy: 1
   cellArrivalThreshold: 0.1
   heightOffset: 0.5
-  gridLayerMask:
-    serializedVersion: 2
-    m_Bits: 64
   attackDamage: 10
   attackRange: 5
   attackRate: 1
