@@ -7,7 +7,7 @@ public class EnemyProjectilePool : MonoBehaviour
     
     [SerializeField] GameObject prefab;
     
-    private readonly Queue<Projectile> pool = new Queue<Projectile>();
+    private readonly Queue<Projectile> pool = new();
 
     private void Awake()
     {
@@ -21,14 +21,22 @@ public class EnemyProjectilePool : MonoBehaviour
     }
 
     private Projectile Get() {
-        if (pool.Count > 0) return pool.Dequeue();
-        var go = Instantiate(prefab);
-        go.TryGetComponent<Projectile>(out var p);
-        p.OnDestroy += Return;
+        Projectile p;
+        if (pool.Count > 0) {
+            p = pool.Dequeue();
+        } else {
+            var go = Instantiate(prefab);
+            go.TryGetComponent(out p);
+            p.OnDestroy += Return;
+        }
+        p.gameObject.SetActive(true);
         return p;
     }
 
-    private void Return(Projectile p) { pool.Enqueue(p); }
+    private void Return(Projectile p) {
+        p.gameObject.SetActive(false);
+        pool.Enqueue(p);
+    }
 
     public void SpawnProjectile(float damage, Vector3 position, Quaternion rotation)
     {
