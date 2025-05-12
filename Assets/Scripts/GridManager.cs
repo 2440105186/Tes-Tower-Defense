@@ -206,6 +206,10 @@ public class GridManager : MonoBehaviour
         return false;
     }
     
+    public bool IsWithinBounds(Vector2Int cell) => 
+        cell.x >= 0 && cell.x < GridSizeX &&
+        cell.y >= 0 && cell.y < GridSizeY;
+    
     public CellType GetCellType(Vector2Int coordinates)
     {
         if (cellLookup.TryGetValue(coordinates, out GridCell cell))
@@ -237,6 +241,3 @@ public class GridManager : MonoBehaviour
         SpawnedGate = gate;
     }
 }
-
-#if UNITY_EDITOR
-#endif
