@@ -18,13 +18,17 @@ public class Mud : CellModifier
 
     private void OnTriggerEnter(Collider other)
     {
-        other.gameObject.TryGetComponent<Enemy>(out var enemy);
-        ApplyModifier(enemy);
+        if (other.gameObject.TryGetComponent<Enemy>(out var enemy))
+        {
+            ApplyModifier(enemy);
+        }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        other.gameObject.TryGetComponent<Enemy>(out var enemy);
-        RemoveModifier(enemy);
+        if (other.gameObject.TryGetComponent<Enemy>(out var enemy))
+        {
+            RemoveModifier(enemy);
+        }
     }
 }
