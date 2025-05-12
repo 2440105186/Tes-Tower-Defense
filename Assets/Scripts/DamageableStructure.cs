@@ -32,10 +32,8 @@ public abstract class DamageableStructure : MonoBehaviour, IDamageable
         float actualDamage = Mathf.Min(currentHealth, amount);
         currentHealth -= actualDamage;
         
-        // Trigger damage event
         OnDamaged?.Invoke(this, actualDamage);
         
-        // Check if structure is destroyed
         if (currentHealth <= 0)
         {
             DestroyStructure();
@@ -46,10 +44,7 @@ public abstract class DamageableStructure : MonoBehaviour, IDamageable
     
     protected virtual void DestroyStructure()
     {
-        // Trigger destroyed event
         OnDestroyed?.Invoke(this);
-        
-        // Implement specific destroy behavior in child classes
         Destroy(gameObject);
     }
 }
