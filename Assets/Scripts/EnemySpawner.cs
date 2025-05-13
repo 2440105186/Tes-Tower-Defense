@@ -3,7 +3,8 @@ using UnityEngine;
 
 public class EnemySpawner : MonoBehaviour
 {
-    [SerializeField] private GameObject enemyPrefab;
+    [SerializeField] private GameObject rangedEnemyPrefab;
+    [SerializeField] private GameObject suicideEnemyPrefab;
     [SerializeField] private int enemyCount = 10;
     [SerializeField] private float spawnDelay = 1f;
     [SerializeField] private float spawnHeight = 0.5f;
@@ -34,12 +35,12 @@ public class EnemySpawner : MonoBehaviour
         // Spawn enemies one by one with delay
         for (int i = 0; i < enemyCount; i++)
         {
-            SpawnEnemy();
+            SpawnEnemy(rangedEnemyPrefab);
             yield return new WaitForSeconds(spawnDelay);
         }
     }
 
-    public void SpawnEnemy()
+    public void SpawnEnemy(GameObject enemyType)
     {
         // Get spawn position from grid path if available
         Vector3 position = transform.position;
@@ -67,6 +68,6 @@ public class EnemySpawner : MonoBehaviour
             }
         }
         
-        Instantiate(enemyPrefab, position, Quaternion.identity);
+        Instantiate(enemyType, position, Quaternion.identity);
     }
 }

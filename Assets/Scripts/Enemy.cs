@@ -147,13 +147,19 @@ public class Enemy : MonoBehaviour, IDamageable
         if (attackCooldown > 0f)
             return;
 
+        if (firePoint == null)
+        {
+            Debug.LogWarning($"No fire point!");
+            return;
+        }
+
         Collider[] hits = Physics.OverlapSphere(transform.position, attackRange, towerLayers);
-        Transform closestTower = null;
+        Transform closestTarget = null;
         float closestDistSq = float.MaxValue;
 
         foreach (var col in hits)
         {
-            if (col.TryGetComponent<IDamageable>(out var dmg) && !ReferenceEquals(dmg, this))
+            if (col.TryGetComponent<IDamageable>(out var dmg) && dmg is not Enemy && !ReferenceEquals(dmg, this))
             {
                 Vector3 toTower = col.transform.position - firePoint.position;
                 if (Physics.Raycast(firePoint.position, toTower.normalized, out RaycastHit hit, attackRange, environmentLayers)
@@ -164,16 +170,21 @@ public class Enemy : MonoBehaviour, IDamageable
                 if (distSq < closestDistSq)
                 {
                     closestDistSq = distSq;
-                    closestTower = col.transform;
+                    closestTarget = col.transform;
                 }
             }
         }
 
-        if (closestTower != null)
+        if (closestTarget != null)
         {
-            Quaternion rot = Quaternion.LookRotation(closestTower.position - firePoint.position);
+            Quaternion rot = Quaternion.LookRotation(closestTarget.position - firePoint.position);
             EnemyProjectilePool.Instance.SpawnProjectile(attackDamage, firePoint.position, rot);
             attackCooldown = 1f / attackRate;
+
+            if (closestTarget.TryGetComponent<Gate>(out var _))
+            {
+                isAttackingGate = true;
+            }
         }
     }
 
